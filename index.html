@@ -1,0 +1,1478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Silhouette Pause Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0b1020; --panel:#151c33; --panel2:#1b2440; --line:#26304f;
+    --text:#e6ebff; --muted:#8a95bb; --hot:#ff3d7f; --lock:#35e0d0; --warn:#ffb648;
+    --display:"Oswald","Arial Narrow",sans-serif;
+    --body:"Inter",system-ui,sans-serif;
+    --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--ink);color:var(--text);font-family:var(--body);font-size:14px;-webkit-font-smoothing:antialiased}
+  button,input,select{font-family:inherit;color:inherit}
+  .app{display:flex;height:100vh;overflow:hidden}
+
+  .rail{width:366px;flex:0 0 366px;background:var(--panel);border-right:1px solid var(--line);overflow-y:auto;padding-bottom:40px}
+  .brand{padding:18px 20px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel);z-index:5}
+  .brand h1{font-family:var(--display);font-weight:600;font-size:20px;letter-spacing:.13em;text-transform:uppercase;margin:0;line-height:1}
+  .brand p{margin:7px 0 0;color:var(--muted);font-size:12px;line-height:1.5}
+
+  .group{border-bottom:1px solid var(--line);padding:18px 20px}
+  .group:last-child{border-bottom:0}
+  .group > h2{font-family:var(--display);font-weight:500;font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin:0 0 13px;display:flex;justify-content:space-between;align-items:baseline}
+  .group > h2 span{font-family:var(--mono);font-size:11px;letter-spacing:0;color:var(--lock);text-transform:none}
+
+  .drop{border:1px dashed var(--line);border-radius:4px;padding:18px 14px;text-align:center;cursor:pointer;background:var(--panel2);transition:.15s}
+  .drop:hover,.drop.over{border-color:var(--hot);background:#20294a}
+  .drop strong{display:block;font-family:var(--display);letter-spacing:.1em;text-transform:uppercase;font-size:13px;font-weight:500}
+  .drop span{display:block;color:var(--muted);font-size:11.5px;margin-top:6px;line-height:1.5}
+
+  .objs{margin-top:12px;display:flex;flex-direction:column;gap:5px}
+  .obj{display:flex;align-items:center;gap:7px;padding:6px 8px;border:1px solid var(--line);border-radius:3px;background:var(--panel2);cursor:pointer}
+  .obj:hover{border-color:#37436e}
+  .obj.sel{border-color:var(--hot)}
+  .obj .thumb{width:30px;height:30px;flex:0 0 30px;border-radius:2px;background:#fff center/contain no-repeat;border:1px solid var(--line)}
+  .obj .nm{flex:1;min-width:0;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
+  .obj.sel .nm{color:var(--text)}
+  .obj .mult{font-family:var(--mono);font-size:10px;color:var(--muted);flex:0 0 auto}
+  .obj .w{font-family:var(--mono);font-size:10px;flex:0 0 auto;min-width:22px;text-align:right;color:var(--lock)}
+  .obj .w.tight{color:var(--warn)}
+  .obj .w.dead{color:var(--hot)}
+  .obj .cut{font-family:var(--display);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;padding:4px 7px;border-radius:2px;border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer}
+  .obj .cut.on{background:var(--lock);border-color:var(--lock);color:#052622}
+  .obj .del{background:none;border:0;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;padding:2px 3px}
+  .obj .del:hover{color:var(--hot)}
+
+  .seg{display:grid;gap:5px;grid-template-columns:repeat(3,1fr)}
+  .seg.two{grid-template-columns:repeat(2,1fr)}
+  .seg button{background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:9px 3px;cursor:pointer;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;font-family:var(--display);font-weight:500;color:var(--muted);transition:.15s}
+  .seg button:hover{color:var(--text);border-color:#37436e}
+  .seg button[aria-pressed="true"]{background:var(--hot);border-color:var(--hot);color:#fff}
+  .seg + .seg{margin-top:6px}
+
+  .row{margin-top:14px}
+  .row.off{opacity:.38;pointer-events:none}
+  .row label{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;color:var(--muted);margin-bottom:4px}
+  .row label b{font-family:var(--mono);font-weight:700;color:var(--text);font-size:12px}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:2px;background:var(--line);border-radius:2px;outline:none;margin:6px 0}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--hot);cursor:pointer;border:2px solid var(--panel)}
+  input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--hot);cursor:pointer;border:2px solid var(--panel)}
+  input[type=range]:focus-visible{outline:2px solid var(--lock);outline-offset:4px}
+  input[type=text]{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:9px 10px;font-size:13px}
+  input[type=text]:focus{outline:none;border-color:var(--hot)}
+  .check{display:flex;align-items:center;gap:9px;margin-top:11px;color:var(--muted);font-size:12.5px;cursor:pointer}
+  .check input{accent-color:var(--hot);width:15px;height:15px}
+  .sub{font-family:var(--display);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin:16px 0 9px;padding-top:14px;border-top:1px solid var(--line)}
+
+  .go{width:100%;padding:13px;border:0;border-radius:3px;background:var(--hot);color:#fff;font-family:var(--display);font-size:13px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;cursor:pointer}
+  .go:hover{background:#ff2a70}
+  .go:disabled{background:var(--line);color:var(--muted);cursor:not-allowed}
+  .go.rec{background:var(--lock);color:#052622}
+  .ghost{width:100%;margin-top:8px;padding:11px;border-radius:3px;cursor:pointer;background:transparent;border:1px solid var(--line);color:var(--muted);font-family:var(--display);font-size:12px;letter-spacing:.14em;text-transform:uppercase}
+  .ghost:hover{color:var(--text);border-color:#37436e}
+  .ghost:disabled{opacity:.45;cursor:not-allowed}
+  .note{color:var(--muted);font-size:11.5px;line-height:1.6;margin:12px 0 0}
+  .note b{color:#b9c1dd;font-weight:600}
+  .note.warn{color:var(--warn)}
+  .note.warn[hidden]{display:none}
+
+  .stage{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;overflow:auto;min-width:0}
+  .screen{position:relative;flex:0 0 auto}
+  canvas#view{display:block;height:min(64vh,640px);width:auto;aspect-ratio:9/16;background:#fff;border:1px solid var(--line);border-radius:3px;cursor:grab;touch-action:none}
+  canvas#view.grabbing{cursor:grabbing}
+  .hint{position:absolute;left:0;right:0;bottom:-22px;text-align:center;font-size:11px;color:var(--muted)}
+  .recdot{position:absolute;top:10px;left:10px;display:none;align-items:center;gap:7px;background:rgba(11,16,32,.85);border-radius:3px;padding:5px 9px;font-family:var(--mono);font-size:11px}
+  .recdot.on{display:flex}
+  .recdot i{width:8px;height:8px;border-radius:50%;background:var(--hot);animation:blink 1s steps(2,end) infinite}
+  @keyframes blink{50%{opacity:0}}
+
+  .landed{
+    position:absolute;top:10px;right:10px;display:none;
+    background:var(--lock);color:#052622;border-radius:3px;padding:6px 11px;
+    font-family:var(--display);font-size:11px;letter-spacing:.13em;text-transform:uppercase;font-weight:600;
+  }
+  .landed.on{display:block}
+
+  .transport{
+    display:flex;align-items:center;gap:9px;width:min(580px,100%);margin-top:8px;
+  }
+  .tbtn{
+    background:var(--panel2);border:1px solid var(--line);border-radius:3px;
+    color:var(--muted);cursor:pointer;padding:0;
+    width:34px;height:32px;font-size:11px;line-height:1;
+    display:flex;align-items:center;justify-content:center;flex:0 0 auto;
+  }
+  .tbtn:hover{color:var(--text);border-color:#37436e}
+  .tbtn:focus-visible{outline:2px solid var(--lock);outline-offset:2px}
+  .tbtn.play{background:var(--hot);border-color:var(--hot);color:#fff;width:40px;font-size:12px}
+  .tbtn.play.paused{background:var(--lock);border-color:var(--lock);color:#052622}
+  .tbtn.wide{width:auto;padding:0 11px;font-family:var(--display);font-size:10.5px;
+    letter-spacing:.12em;text-transform:uppercase}
+  #scrub{flex:1;min-width:60px;margin:0}
+  .fcount{font-family:var(--mono);font-size:11.5px;color:var(--muted);flex:0 0 auto;min-width:52px;text-align:right}
+  .fcount b{color:var(--text);font-weight:700}
+
+  .ticks{cursor:pointer}
+
+  .ruler{width:min(580px,100%);margin-top:14px}
+  .ruler-head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:9px;gap:14px;flex-wrap:wrap}
+  .ruler-head .k{font-family:var(--display);text-transform:uppercase;letter-spacing:.2em;font-size:11px;color:var(--muted)}
+  .ruler-head .v{font-family:var(--mono);font-size:12px}
+  .ruler-head .v em{font-style:normal;color:var(--lock)}
+  .solbar{display:flex;align-items:center;gap:10px;margin-bottom:9px;font-family:var(--mono);font-size:12px}
+  .solbar .n{color:var(--lock)}
+  .solbar .n.multi{color:var(--warn)}
+  .solbar button{background:transparent;border:1px solid var(--line);border-radius:3px;padding:5px 10px;font-family:var(--display);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);cursor:pointer}
+  .solbar button:hover{color:var(--text);border-color:var(--lock)}
+  .solbar button[hidden]{display:none}
+  .ticks{display:flex;gap:1px;height:34px;align-items:flex-end;border-bottom:1px solid var(--line)}
+  .ticks i{flex:1;min-width:1px;background:var(--line);height:9px;transition:height .12s,background .12s}
+  .ticks i.near{background:#33406b;height:18px}
+  .ticks i.win{background:var(--lock);height:34px}
+  .ticks i.now{background:var(--hot)}
+  .ticks i.win.now{background:var(--hot);height:34px}
+  .verdict{margin-top:9px;font-size:12px;color:var(--muted);line-height:1.55}
+  .verdict b{color:var(--text);font-weight:600}
+  .verdict .lim{color:var(--warn)}
+
+  @media (max-width:900px){
+    .app{flex-direction:column;height:auto;overflow:visible}
+    .rail{width:100%;flex:none;border-right:0;border-bottom:1px solid var(--line)}
+    .brand{position:static}
+    canvas#view{height:auto;width:min(300px,72vw)}
+    .stage{padding:20px 16px 40px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .recdot i{animation:none}
+    .ticks i{transition:none}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="rail">
+    <div class="brand">
+      <h1>Silhouette Pause Studio</h1>
+      <p>Arrange cut-out objects, set any number of them loose, and make the viewer land every shadow at once.</p>
+    </div>
+
+    <div class="group">
+      <h2>Objects <span id="cutCount"></span></h2>
+      <div class="drop" id="drop" tabindex="0" role="button">
+        <strong>Add cut-outs</strong>
+        <span>Transparent PNG or WEBP · add several at once</span>
+      </div>
+      <input type="file" id="file" accept="image/png,image/webp,image/*" multiple hidden>
+      <div class="objs" id="objs"></div>
+      <p class="note">The number on each cut row is how many frames <b>that piece alone</b> is landed for. The smallest one is what the viewer has to watch.</p>
+    </div>
+
+    <div class="group">
+      <h2>Shadow style</h2>
+      <div class="seg two" id="styleSeg">
+        <button data-style="true" aria-pressed="true">True colour</button>
+        <button data-style="flat" aria-pressed="false">Flat</button>
+      </div>
+      <div class="row">
+        <label>Shadow opacity <b id="vFade">55%</b></label>
+        <input type="range" id="fade" min="10" max="100" step="5" value="55">
+      </div>
+      <p class="note">True colour keeps the object's own colours. Flat replaces them with one high-contrast tone. Opacity applies to whole-object pieces; a piece cut <i>out of</i> an object is always solid so it merges with its body when it lands.</p>
+    </div>
+
+    <div class="group">
+      <h2>Selected object</h2>
+      <div class="row">
+        <label>Size <b id="vScale">—</b></label>
+        <input type="range" id="oscale" min="90" max="760" step="5" value="340" disabled>
+      </div>
+      <div class="row">
+        <label>Resting angle <b id="vRot">—</b></label>
+        <input type="range" id="orot" min="-180" max="180" step="1" value="0" disabled>
+      </div>
+
+      <p class="sub">Cut a piece out of it</p>
+      <label class="check"><input type="checkbox" id="splitOn" disabled> Only part of this object moves</label>
+      <div id="splitPane" style="opacity:.42">
+        <div class="seg two" id="splitShapeSeg" style="margin-top:10px">
+          <button data-sshape="circle" aria-pressed="true">Round</button>
+          <button data-sshape="rect" aria-pressed="false">Square</button>
+        </div>
+        <div class="row">
+          <label>Piece size <b id="vSplitS">40%</b></label>
+          <input type="range" id="splitS" min="10" max="90" step="2" value="40" disabled>
+        </div>
+        <div class="row">
+          <label>Piece across <b id="vSplitX">0%</b></label>
+          <input type="range" id="splitX" min="-50" max="50" step="1" value="0" disabled>
+        </div>
+        <div class="row">
+          <label>Piece down <b id="vSplitY">0%</b></label>
+          <input type="range" id="splitY" min="-50" max="50" step="1" value="0" disabled>
+        </div>
+        <p class="note">The rest of the object stays put and becomes the shadow the piece has to drop back into. The cyan outline shows what gets cut.</p>
+        <p class="note warn" id="spinWarn" hidden>This piece looks the same at every angle, so a spin gives the viewer nothing to read. Switch it to <b>Square</b>, move it over an edge of the object, or give it Drift or Zoom instead.</p>
+      </div>
+
+      <div id="cutPane">
+        <p class="sub">Its motion</p>
+        <div class="seg" id="omodeSeg">
+          <button data-omode="" aria-pressed="true">Scene</button>
+          <button data-omode="rotate" aria-pressed="false">Spin</button>
+          <button data-omode="orbit" aria-pressed="false">Drift</button>
+          <button data-omode="sweep" aria-pressed="false">Sweep</button>
+          <button data-omode="carousel" aria-pressed="false">Carousel</button>
+          <button data-omode="pulse" aria-pressed="false">Zoom</button>
+        </div>
+        <div class="row">
+          <label>Speed × <b id="vMult">—</b></label>
+          <input type="range" id="omult" min="-6" max="6" step="1" value="1" disabled>
+        </div>
+        <p class="note">Negative runs it backwards. Give pieces speeds with no common factor — 2 and 3, or 3 and 4 — and they meet on exactly one frame.</p>
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>Background</h2>
+      <div class="seg" id="bgSeg">
+        <button data-bg="#ffffff" aria-pressed="true">White</button>
+        <button data-bg="#f2ede3" aria-pressed="false">Cream</button>
+        <button data-bg="#12141c" aria-pressed="false">Dark</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>Scene motion</h2>
+      <div class="seg" id="modeSeg">
+        <button data-mode="rotate" aria-pressed="true">Spin</button>
+        <button data-mode="orbit" aria-pressed="false">Drift</button>
+        <button data-mode="sweep" aria-pressed="false">Sweep</button>
+        <button data-mode="carousel" aria-pressed="false">Carousel</button>
+        <button data-mode="pulse" aria-pressed="false">Zoom</button>
+      </div>
+      <div class="row">
+        <label>Cycles per loop <b id="vCycles">1</b></label>
+        <input type="range" id="cycles" min="1" max="6" step="1" value="1">
+      </div>
+      <div class="row" id="rowTravel">
+        <label>Travel <b id="vTravel">40%</b></label>
+        <input type="range" id="travel" min="10" max="90" step="5" value="40">
+      </div>
+      <div class="row">
+        <label>Loop length <b id="vLoop">3.0 s</b></label>
+        <input type="range" id="loop" min="1.5" max="6" step="0.5" value="3">
+      </div>
+      <p class="note"><b>Sweep</b> carries pieces off one edge and back on the other. <b>Carousel</b> swings every cut piece around their shared centre. Cycles stay whole numbers so the clip loops seamlessly.</p>
+    </div>
+
+    <div class="group">
+      <h2>Difficulty</h2>
+      <div class="row" style="margin-top:0">
+        <label>Slot opacity <b id="vSlot">14%</b></label>
+        <input type="range" id="slotA" min="0" max="60" step="2" value="14">
+      </div>
+      <p class="note">The slot is the ghost showing where each piece belongs. Drop it to <b>0%</b> and the target disappears — the viewer has to judge the fit from the scene alone.</p>
+      <p class="note warn" id="slotWarn" hidden>Slot is as solid as the moving piece, so the two look identical when landed and the puzzle reads as already solved.</p>
+      <div class="row">
+        <label>Catch tolerance <b id="vTol">30 px</b></label>
+        <input type="range" id="tol" min="6" max="120" step="2" value="30">
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>Caption</h2>
+      <input type="text" id="cap" value="PAUSE TO FIT THE SHADOW" maxlength="34">
+      <label class="check"><input type="checkbox" id="capOn" checked> Burn caption into the video</label>
+      <label class="check"><input type="checkbox" id="autoCap" checked> Match caption to the number of pieces</label>
+    </div>
+
+    <div class="group">
+      <h2>Export</h2>
+      <div class="seg two" id="fpsSeg" style="margin-bottom:14px">
+        <button data-fps="30" aria-pressed="true">30 fps</button>
+        <button data-fps="60" aria-pressed="false">60 fps</button>
+      </div>
+      <div class="row">
+        <label>Loops to export <b id="vReps">3</b></label>
+        <input type="range" id="reps" min="1" max="8" step="1" value="3">
+      </div>
+      <button class="go" id="rec" disabled>Export MP4</button>
+      <button class="ghost" id="snap" disabled>Save this frame as PNG</button>
+      <p class="note">Renders each frame explicitly and encodes a 1080×1920 <b>MP4</b> with exactly the frames and duration you see in the preview. 60 fps is twice as smooth and twice the file size; the puzzle stays the same difficulty because the catch window is the same length in seconds either way.</p>
+    </div>
+  </aside>
+
+  <main class="stage">
+    <div class="screen">
+      <canvas id="view" width="1080" height="1920"></canvas>
+      <div class="recdot" id="recdot"><i></i><span id="recTime">0.0s</span></div>
+      <div class="landed" id="landed">All shadows landed</div>
+      <div class="hint">Click an object to select · drag to move · space to play or pause</div>
+    </div>
+
+    <div class="transport">
+      <button class="tbtn" id="stepBack" title="Previous frame (←)">◀</button>
+      <button class="tbtn play" id="playBtn" title="Play / pause (space)">❚❚</button>
+      <button class="tbtn" id="stepFwd" title="Next frame (→)">▶</button>
+      <input type="range" id="scrub" min="0" max="89" step="1" value="0" aria-label="Scrub frames">
+      <span class="fcount"><b id="fNow">0</b>/<span id="fTot">90</span></span>
+      <button class="tbtn wide" id="toSolved" title="Jump to the winning frame">Solved frame</button>
+    </div>
+
+    <section class="ruler" aria-label="Frame ruler">
+      <div class="solbar">
+        <span>Solutions per loop: <span class="n" id="solN">—</span></span>
+        <button id="makeUnique" hidden>Make it a single solution</button>
+      </div>
+      <div class="ruler-head">
+        <span class="k" id="rulerK">Frame ruler · 30 fps · click to scrub</span>
+        <span class="v"><em id="winFrames">0</em> winning frames in <span id="totFrames">90</span></span>
+      </div>
+      <div class="ticks" id="ticks"></div>
+      <p class="verdict" id="verdict">Add a cut-out object to start.</p>
+    </section>
+  </main>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var W=1080, H=1920, FPS=30;
+  var view=document.getElementById('view'), ctx=view.getContext('2d');
+
+  var S={
+    objs:[], sel:-1,
+    bg:'#ffffff', mode:'rotate', cycles:1, travel:0.40, loop:3,
+    tol:30, reps:3,
+    style:'true', fade:0.55, slotA:0.14,
+    cap:'PAUSE TO FIT THE SHADOW', capOn:true, autoCap:true
+  };
+
+  function inkColor(){ return S.bg==='#12141c' ? '#f2f5ff' : '#10131f'; }
+  function cutList(){ return S.objs.filter(function(o){ return o.cut; }); }
+  function gcd(a,b){ a=Math.abs(a); b=Math.abs(b); while(b){ var t=b; b=a%b; a=t; } return a||1; }
+
+  /* ---------- flat silhouette, only used by the flat style ---------- */
+  function makeSil(img,color){
+    var c=document.createElement('canvas');
+    c.width=img.naturalWidth; c.height=img.naturalHeight;
+    var g=c.getContext('2d');
+    g.drawImage(img,0,0);
+    g.globalCompositeOperation='source-in';
+    g.fillStyle=color; g.fillRect(0,0,c.width,c.height);
+    return c;
+  }
+  function refreshSils(){
+    var col=inkColor();
+    S.objs.forEach(function(o){ o.sil=makeSil(o.img,col); });
+    if(typeof rebuildAllSplits==='function') rebuildAllSplits();
+  }
+
+  /* which bitmap and opacity each layer uses — the artwork keeps its own colours
+     unless the flat style is chosen */
+  function pieceSrc(o){ return S.style==='flat' ? o.sil : o.img; }
+  function pieceAlpha(){ return S.fade; }
+  function slotAlpha(){ return S.slotA; }
+  function minPieceAlpha(){
+    var cuts=cutList();
+    if(!cuts.length) return S.fade;
+    var m=1;
+    cuts.forEach(function(o){ var a=isSplit(o)?1:S.fade; if(a<m) m=a; });
+    return m;
+  }
+
+  /* ---------- alpha map: click testing + true swing radius ---------- */
+  function alphaMap(img){
+    var m=140;
+    var s=Math.min(1,m/Math.max(img.naturalWidth,img.naturalHeight));
+    var aw=Math.max(1,Math.round(img.naturalWidth*s));
+    var ah=Math.max(1,Math.round(img.naturalHeight*s));
+    var c=document.createElement('canvas'); c.width=aw; c.height=ah;
+    var g=c.getContext('2d');
+    g.drawImage(img,0,0,aw,ah);
+    var d=g.getImageData(0,0,aw,ah).data;
+    var a=new Uint8Array(aw*ah);
+    var sx=img.naturalWidth/aw, sy=img.naturalHeight/ah, rNat=1;
+    for(var y=0;y<ah;y++){
+      for(var x=0;x<aw;x++){
+        var i=y*aw+x;
+        a[i]=d[i*4+3];
+        if(a[i]>24){
+          var px=(x+0.5-aw/2)*sx, py=(y+0.5-ah/2)*sy;
+          var r=Math.hypot(px,py);
+          if(r>rNat) rNat=r;
+        }
+      }
+    }
+    return {a:a,w:aw,h:ah,rNat:rNat};
+  }
+
+  function dispW(o){ return o.img.naturalWidth*o.scale; }
+  function dispH(o){ return o.img.naturalHeight*o.scale; }
+  function longSide(o){ return Math.max(dispW(o),dispH(o)); }
+  function radius(o){
+    if(o.split&&o.split.on&&o.splitR) return o.splitR*o.scale;   // only the cut piece swings
+    return (o.alpha&&o.alpha.rNat?o.alpha.rNat:Math.hypot(o.img.naturalWidth,o.img.naturalHeight)/2)*o.scale;
+  }
+
+  /* ---------- motion ---------- */
+  function modeOf(o){ return o.mode || S.mode; }
+  function cyclesOf(o){ return S.cycles*Math.max(1,Math.abs(o.mult||1)); }
+  function dirOf(o){ return (o.mult||1)<0 ? -1 : 1; }
+
+  /* shared pivot for carousel — the centre of gravity of everything that's cut */
+  function pivot(){
+    var cuts=cutList();
+    if(!cuts.length) return {x:W/2,y:H/2};
+    var sx=0,sy=0;
+    cuts.forEach(function(o){ var c=pieceCenter(o); sx+=c.x; sy+=c.y; });
+    return {x:sx/cuts.length, y:sy/cuts.length};
+  }
+
+  function poseFor(o,t){
+    var mode=modeOf(o), k=cyclesOf(o), dir=dirOf(o);
+    var ang=0,dx=0,dy=0,scale=1,dx2;
+    if(mode==='rotate'){
+      ang=dir*t*Math.PI*2*k;
+    } else if(mode==='orbit'){
+      var r=pieceSize(o)*S.travel;
+      var th=dir*t*Math.PI*2*k;
+      dx=r-r*Math.cos(th);
+      dy=-r*Math.sin(th)*0.55;
+    } else if(mode==='sweep'){
+      // travels the full width and wraps, so it passes home once per cycle
+      var D=W+pieceSize(o);
+      var u=(((dir*t*k)%1)+1)%1;
+      dx=u*D;
+      dx2=dx-D;                       // the copy coming back on from the other edge
+    } else if(mode==='carousel'){
+      var c=pivot();
+      var th2=dir*t*Math.PI*2*k;
+      var pcc=pieceCenter(o);
+      var vx=pcc.x-c.x, vy=pcc.y-c.y;
+      var cs=Math.cos(th2), sn=Math.sin(th2);
+      dx=(c.x+vx*cs-vy*sn)-pcc.x;
+      dy=(c.y+vx*sn+vy*cs)-pcc.y;
+      ang=th2;
+    } else {
+      scale=1+S.travel*Math.abs(Math.sin(Math.PI*t*k));
+    }
+    return {ang:ang,dx:dx,dy:dy,scale:scale,dx2:dx2};
+  }
+
+  function errFor(o,t){
+    var p=poseFor(o,t), mode=modeOf(o), r=radius(o);
+    if(mode==='rotate'){
+      var a=Math.abs(((p.ang%(Math.PI*2))+Math.PI*2)%(Math.PI*2));
+      if(a>Math.PI) a=Math.PI*2-a;
+      return a*r;
+    }
+    if(mode==='orbit') return Math.hypot(p.dx,p.dy);
+    if(mode==='sweep') return Math.min(Math.abs(p.dx),Math.abs(p.dx2));
+    if(mode==='carousel'){
+      var a2=Math.abs(((p.ang%(Math.PI*2))+Math.PI*2)%(Math.PI*2));
+      if(a2>Math.PI) a2=Math.PI*2-a2;
+      return Math.max(Math.hypot(p.dx,p.dy), a2*r);   // must be back in place AND upright
+    }
+    return Math.abs(p.scale-1)*r;
+  }
+
+  function sceneErr(t){
+    var cuts=cutList();
+    if(!cuts.length) return 1e9;
+    var worst=0;
+    for(var i=0;i<cuts.length;i++){
+      var e=errFor(cuts[i],t);
+      if(e>worst) worst=e;
+    }
+    return worst;
+  }
+
+  /* ---------- splitting one object into a moving piece and a leftover body ---------- */
+  function splitPath(g,cx,cy,size,shape){
+    g.beginPath();
+    if(shape==='rect') g.rect(cx-size/2,cy-size/2,size,size);
+    else g.arc(cx,cy,size/2,0,Math.PI*2);
+  }
+
+  /* farthest solid pixel from centre — how far the piece swings per degree */
+  function measureR(cv){
+    var m=100, sc=Math.min(1,m/Math.max(cv.width,cv.height));
+    var w=Math.max(1,Math.round(cv.width*sc)), h=Math.max(1,Math.round(cv.height*sc));
+    var t=document.createElement('canvas'); t.width=w; t.height=h;
+    var g=t.getContext('2d'); g.drawImage(cv,0,0,w,h);
+    var d=g.getImageData(0,0,w,h).data;
+    var sx=cv.width/w, sy=cv.height/h, r=1;
+    for(var y=0;y<h;y++) for(var x=0;x<w;x++){
+      if(d[(y*w+x)*4+3]>24){
+        var px=(x+0.5-w/2)*sx, py=(y+0.5-h/2)*sy;
+        var dd=Math.hypot(px,py); if(dd>r) r=dd;
+      }
+    }
+    return r;
+  }
+
+  function buildSplit(o){
+    if(!o.split||!o.split.on){ o.cutTrue=o.cutFlat=o.remTrue=o.remFlat=null; return; }
+    var iw=o.img.naturalWidth, ih=o.img.naturalHeight;
+    var cx=iw/2+o.split.fx*iw, cy=ih/2+o.split.fy*ih;
+    var size=Math.max(8,o.split.fs*Math.max(iw,ih));
+    o.splitSize=size;
+
+    function make(src){
+      var r=document.createElement('canvas'); r.width=iw; r.height=ih;
+      var rg=r.getContext('2d');
+      rg.drawImage(src,0,0);
+      rg.globalCompositeOperation='destination-out';   // punch the piece out of the body
+      splitPath(rg,cx,cy,size,o.split.shape); rg.fill();
+
+      var c=document.createElement('canvas');
+      c.width=Math.ceil(size); c.height=Math.ceil(size);
+      var cg=c.getContext('2d');
+      cg.save();
+      splitPath(cg,size/2,size/2,size,o.split.shape); cg.clip();
+      cg.drawImage(src,size/2-cx,size/2-cy);           // keep the piece centred on its own middle
+      cg.restore();
+      return {rem:r,cut:c};
+    }
+    var t=make(o.img), f=make(o.sil);
+    o.remTrue=t.rem; o.cutTrue=t.cut;
+    o.remFlat=f.rem; o.cutFlat=f.cut;
+    o.splitR=measureR(t.cut);
+    o.cueTrue=spinCue(t.cut);
+    o.cueFlat=spinCue(f.cut);
+  }
+
+  /* A round piece taken from a solid interior looks identical however far it
+     spins, so there is nothing for the viewer to judge. Measure that directly:
+     how much of the piece actually changes once rotated. */
+  function spinCue(cut){
+    var m=72, pad=Math.ceil(m*1.45);
+    function shot(ang){
+      var c=document.createElement('canvas'); c.width=pad; c.height=pad;
+      var g=c.getContext('2d');
+      g.translate(pad/2,pad/2); g.rotate(ang);
+      g.drawImage(cut,-m/2,-m/2,m,m);
+      return g.getImageData(0,0,pad,pad).data;
+    }
+    var a=shot(0), b=shot(37*Math.PI/180), opaque=0, diff=0;
+    for(var i=0;i<a.length;i+=4){
+      if(a[i+3]>24||b[i+3]>24) opaque++;
+      if(Math.abs(a[i+3]-b[i+3])>24||Math.abs(a[i]-b[i])>24) diff++;
+    }
+    return opaque ? diff/opaque : 0;
+  }
+  function rebuildAllSplits(){ S.objs.forEach(buildSplit); }
+
+  function isSplit(o){ return !!(o.split&&o.split.on&&o.cutTrue); }
+  function cutSrc(o){ return S.style==='flat' ? o.cutFlat : o.cutTrue; }
+  function remSrc(o){ return S.style==='flat' ? o.remFlat : o.remTrue; }
+
+  /* scene position the moving piece rests at */
+  function pieceCenter(o){
+    if(!isSplit(o)) return {x:o.x,y:o.y};
+    var lx=o.split.fx*o.img.naturalWidth*o.scale;
+    var ly=o.split.fy*o.img.naturalHeight*o.scale;
+    var c=Math.cos(o.rot), sn=Math.sin(o.rot);
+    return {x:o.x+lx*c-ly*sn, y:o.y+lx*sn+ly*c};
+  }
+  function pieceSize(o){
+    return isSplit(o) ? o.splitSize*o.scale : Math.max(dispW(o),dispH(o));
+  }
+
+  /* ---------- draw ---------- */
+  function drawAt(src,alpha,x,y,rot,sc,w,h){
+    if(!src) return;
+    ctx.save();
+    ctx.globalAlpha=alpha;
+    ctx.translate(x,y);
+    ctx.rotate(rot);
+    if(sc!==1) ctx.scale(sc,sc);
+    ctx.drawImage(src,-w/2,-h/2,w,h);
+    ctx.restore();
+  }
+
+  function drawPiece(o,alpha,p,dxOverride){
+    var pc=pieceCenter(o);
+    var dx=(dxOverride!==undefined?dxOverride:(p?p.dx:0));
+    if(isSplit(o)){
+      var d=o.splitSize*o.scale;
+      drawAt(cutSrc(o),alpha,pc.x+dx,pc.y+(p?p.dy:0),o.rot+(p?p.ang:0),p?p.scale:1,d,d);
+    } else {
+      drawAt(pieceSrc(o),alpha,pc.x+dx,pc.y+(p?p.dy:0),o.rot+(p?p.ang:0),p?p.scale:1,dispW(o),dispH(o));
+    }
+  }
+
+  function captionText(){
+    if(!S.autoCap) return S.cap;
+    var n=cutList().length;
+    return n<=1 ? S.cap : 'PAUSE TO FIT ALL '+n;
+  }
+
+  function draw(t){
+    ctx.fillStyle=S.bg;
+    ctx.fillRect(0,0,W,H);
+
+    if(!S.objs.length){
+      ctx.fillStyle='#b9c1dd';
+      ctx.font='500 42px Oswald, sans-serif';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('ADD A CUT-OUT OBJECT',W/2,H/2);
+      return;
+    }
+
+    // everything that stays put: whole objects, plus the leftover body of split ones
+    S.objs.forEach(function(o){
+      if(!o.cut) drawAt(o.img,1,o.x,o.y,o.rot,1,dispW(o),dispH(o));
+      else if(isSplit(o)) drawAt(remSrc(o),1,o.x,o.y,o.rot,1,dispW(o),dispH(o));
+    });
+
+    if(S.slotA>0){
+      var a=slotAlpha();
+      S.objs.forEach(function(o){ if(o.cut) drawPiece(o,a,null); });
+    }
+
+    S.objs.forEach(function(o){
+      if(!o.cut) return;
+      var p=poseFor(o,t), sp=isSplit(o);
+
+      // a piece cut out of an object is solid, so it merges with its body when it lands
+      var pa = sp ? 1 : pieceAlpha();
+
+      // and its drop shadow fades out as it comes home, or the halo would
+      // outline the piece and give the answer away on the solved frame
+      var sh = 0.28;
+      if(sp) sh = 0.28*Math.min(1, errFor(o,t)/Math.max(1,S.tol*3));
+
+      ctx.save();
+      ctx.shadowColor='rgba(0,0,0,'+sh.toFixed(3)+')';
+      ctx.shadowBlur=30; ctx.shadowOffsetY=10;
+      drawPiece(o,pa,p);
+      if(p.dx2!==undefined) drawPiece(o,pa,p,p.dx2);
+      ctx.restore();
+    });
+
+    if(!recording && S.sel>=0 && S.objs[S.sel]){
+      var so=S.objs[S.sel], w=dispW(so), h=dispH(so);
+      ctx.save();
+      ctx.translate(so.x,so.y); ctx.rotate(so.rot);
+      ctx.strokeStyle='#ff3d7f'; ctx.lineWidth=3; ctx.setLineDash([14,10]);
+      ctx.strokeRect(-w/2,-h/2,w,h);
+      if(isSplit(so)){
+        var lx=so.split.fx*so.img.naturalWidth*so.scale;
+        var ly=so.split.fy*so.img.naturalHeight*so.scale;
+        var d2=so.splitSize*so.scale;
+        ctx.strokeStyle='#35e0d0'; ctx.lineWidth=4; ctx.setLineDash([10,8]);
+        ctx.beginPath();
+        if(so.split.shape==='rect') ctx.rect(lx-d2/2,ly-d2/2,d2,d2);
+        else ctx.arc(lx,ly,d2/2,0,Math.PI*2);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    var txt=captionText();
+    if(S.capOn && txt.trim()){
+      txt=txt.toUpperCase();
+      ctx.font='600 54px Oswald, sans-serif';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      var pad=ctx.measureText(txt).width+72;
+      ctx.fillStyle=S.bg==='#12141c'?'rgba(255,255,255,0.10)':'rgba(16,19,31,0.90)';
+      ctx.fillRect((W-pad)/2,166,pad,104);
+      ctx.fillStyle=S.bg==='#12141c'?'#f2f5ff':'#ffffff';
+      ctx.fillText(txt,W/2,218);
+    }
+  }
+
+  /* ---------- frame ruler ---------- */
+  var ticksEl=document.getElementById('ticks'), tickNodes=[], winMap=[];
+
+  function rebuildRuler(){
+    var n=Math.round(S.loop*FPS);
+    if(tickNodes.length!==n){
+      ticksEl.innerHTML=''; tickNodes=[];
+      ticksEl.style.gap = n>180 ? '0px' : '1px';   // 60fps packs far more ticks in
+      for(var i=0;i<n;i++){ var e=document.createElement('i'); ticksEl.appendChild(e); tickNodes.push(e); }
+    }
+    var cuts=cutList();
+
+    winMap=[]; var wins=0;
+    for(var f=0;f<n;f++){
+      var err=sceneErr(f/n);
+      var hit=err<=S.tol;
+      winMap.push(hit); if(hit) wins++;
+      tickNodes[f].className = hit ? 'win' : (err<=S.tol*2.5 && cuts.length ? 'near' : '');
+    }
+    var best=0,run=0;
+    for(var k=0;k<n*2;k++){ if(winMap[k%n]){run++; if(run>best)best=run;} else run=0; }
+    best=Math.min(best,n);
+
+    // per-piece windows drive the badges — this is the "which one do I watch" number
+    cuts.forEach(function(o){
+      var c=0;
+      for(var f2=0;f2<n;f2++) if(errFor(o,f2/n)<=S.tol) c++;
+      o.win=c;
+    });
+    paintBadges();
+
+    // solutions per loop = gcd of the effective cycle counts
+    var g=0;
+    cuts.forEach(function(o){ g = g ? gcd(g,cyclesOf(o)) : cyclesOf(o); });
+    var solN=document.getElementById('solN');
+    var uniqBtn=document.getElementById('makeUnique');
+    if(!cuts.length){ solN.textContent='—'; solN.className='n'; uniqBtn.hidden=true; }
+    else{
+      solN.textContent=g;
+      solN.className = g===1 ? 'n' : 'n multi';
+      uniqBtn.hidden = (g===1);
+    }
+
+    document.getElementById('winFrames').textContent=best;
+    document.getElementById('totFrames').textContent=n;
+    document.getElementById('cutCount').textContent = cuts.length ? cuts.length+' cut' : '';
+
+    var v=document.getElementById('verdict');
+    if(!cuts.length){ v.innerHTML='Mark at least one object <b>CUT</b> to set it loose.'; return; }
+
+    var limiter=null, limWins=Infinity;
+    if(cuts.length>1){
+      cuts.forEach(function(o){ if(o.win<limWins){ limWins=o.win; limiter=o; } });
+    }
+
+    // judged in seconds so the rating means the same thing at 30 or 60 fps
+    var secs=best/FPS, msg;
+    if(best===0) msg='<b>Impossible.</b> The pieces never line up on the same frame.';
+    else if(secs<=2/30) msg='<b>Brutal.</b> Almost nobody gets this first try — save it for a late level.';
+    else if(secs<=5/30) msg='<b>Sweet spot.</b> Hard enough to force rewatches, fair enough that winners screenshot it.';
+    else if(secs<=10/30) msg='<b>Friendly.</b> Good opener for a new page — easy wins pull people into the series.';
+    else msg='<b>Too easy.</b> One try and it\'s over, so no rewatch and no watch time.';
+
+    var extra='';
+    if(best>0) extra=' Widest window: <b>'+(best/FPS).toFixed(2)+'s</b>.';
+    if(cuts.length>1 && limiter){
+      extra+=' Watch <span class="lim">'+limiter.name+'</span>';
+      extra+= best===0 ? ' — drop its speed or raise the tolerance.' : ' — it is landed for the fewest frames.';
+    } else if(best===0){
+      extra+=' Raise the tolerance or lengthen the loop.';
+    }
+    v.innerHTML=msg+extra;
+    checkSpin();
+    lastTick=-1;            // classes were just rewritten, so force the playhead back on
+  }
+
+  function paintBadges(){
+    Array.prototype.forEach.call(objsEl.querySelectorAll('.w'),function(el){
+      var o=S.objs[+el.dataset.i];
+      if(!o||!o.cut){ el.textContent=''; el.className='w'; return; }
+      var c=o.win||0;
+      el.textContent=c+'f';
+      el.className='w'+(c===0?' dead':(c<=2*FPS/30?' tight':''));
+    });
+  }
+
+  var lastTick=-1, lastClass='';
+  function markNow(t){
+    if(!tickNodes.length) return;
+    var i=Math.max(0,Math.min(tickNodes.length-1,Math.floor(t*tickNodes.length)));
+    if(i===lastTick) return;
+    if(lastTick>=0&&tickNodes[lastTick]) tickNodes[lastTick].className=lastClass;
+    lastClass=tickNodes[i].className;
+    tickNodes[i].className=lastClass?lastClass+' now':'now';
+    lastTick=i;
+  }
+
+  /* measure the shared window for a hypothetical tolerance and loop length */
+  function windowAt(tolV,loopV){
+    var n=Math.round(loopV*FPS), hits=[];
+    for(var f=0;f<n;f++) hits.push(sceneErr(f/n)<=tolV);
+    var best=0,run=0;
+    for(var i=0;i<n*2;i++){ if(hits[i%n]){run++; if(run>best)best=run;} else run=0; }
+    return Math.min(best,n);
+  }
+
+  /* One solution per loop needs gcd(cycles) === 1. But every piece's window is
+     centred on the same instant, so the shared window collapses to the smallest
+     one — the fastest piece decides it. Assigning coprime speeds alone therefore
+     produces a 1-frame window nobody can hit. So: give the largest object the
+     slowest speed, then widen tolerance (and lengthen the loop only if needed)
+     until the shared window is playable again. */
+  document.getElementById('makeUnique').addEventListener('click',function(){
+    var cuts=cutList();
+    if(!cuts.length) return;
+
+    S.cycles=1;
+    document.getElementById('cycles').value=1;
+    document.getElementById('vCycles').textContent=1;
+
+    // 1,2,3... is the kindest coprime spread — lowest possible top speed.
+    // Biggest piece gets 1x because a wide silhouette swings furthest per degree.
+    cuts.slice().sort(function(a,b){ return radius(b)-radius(a); })
+        .forEach(function(o,i){
+          var m=i+1;
+          o.mult = (i%2===0) ? m : -m;
+          o.multTouched=true;
+        });
+
+    var target=null;
+    var loopOpts=[S.loop,3,4,5,6].filter(function(v,i,arr){ return arr.indexOf(v)===i; });
+    for(var li=0; li<loopOpts.length && !target; li++){
+      for(var tv=6; tv<=120; tv+=2){
+        var w=windowAt(tv,loopOpts[li]);
+        var lo=Math.max(1,Math.round(3*FPS/30)), hi=Math.round(7*FPS/30);
+        if(w>=lo && w<=hi){ target={tol:tv,loop:loopOpts[li],win:w}; break; }
+      }
+    }
+    if(target){
+      S.tol=target.tol; S.loop=target.loop;
+      document.getElementById('tol').value=S.tol;
+      document.getElementById('vTol').textContent=S.tol+' px';
+      document.getElementById('loop').value=S.loop;
+      document.getElementById('vLoop').textContent=S.loop.toFixed(1)+' s';
+    }
+    renderList(); syncSel(); syncTravel(); rebuildRuler();
+  });
+
+  /* ---------- transport ---------- */
+  var playing=true, curT=0, t0=performance.now();
+  var playBtn=document.getElementById('playBtn');
+  var scrub=document.getElementById('scrub');
+  var landedEl=document.getElementById('landed');
+
+  function frameCount(){ return Math.round(S.loop*FPS); }
+
+  function setPlaying(on){
+    if(recording) return;
+    playing=on;
+    if(on) t0=performance.now()-curT*S.loop*1000;   // resume from where it was parked
+    playBtn.textContent = on ? '❚❚' : '▶';
+    playBtn.classList.toggle('paused',!on);
+    playBtn.setAttribute('aria-label', on?'Pause':'Play');
+  }
+
+  function seekFrame(i){
+    if(recording) return;
+    var n=frameCount();
+    i=((i%n)+n)%n;
+    curT=i/n;
+    if(playing) setPlaying(false);
+    syncTransport();
+  }
+
+  function syncTransport(){
+    var n=frameCount();
+    var i=Math.max(0,Math.min(n-1,Math.floor(curT*n)));
+    if(+scrub.max!==n-1) scrub.max=n-1;
+    scrub.value=i;
+    document.getElementById('fNow').textContent=i;
+    document.getElementById('fTot').textContent=n;
+    var landed = !recording && !playing && winMap.length===n && winMap[i];
+    landedEl.classList.toggle('on',!!landed);
+  }
+
+  playBtn.addEventListener('click',function(){ setPlaying(!playing); });
+  document.getElementById('stepBack').addEventListener('click',function(){
+    seekFrame(Math.floor(curT*frameCount())-1);
+  });
+  document.getElementById('stepFwd').addEventListener('click',function(){
+    seekFrame(Math.floor(curT*frameCount())+1);
+  });
+  document.getElementById('toSolved').addEventListener('click',function(){ seekFrame(0); });
+  scrub.addEventListener('input',function(){ seekFrame(+scrub.value); });
+
+  // the ruler doubles as a scrubber, so you can click straight onto a winning frame
+  var ticksDrag=false;
+  function ticksSeek(e){
+    var r=ticksEl.getBoundingClientRect();
+    var n=frameCount();
+    var i=Math.floor((e.clientX-r.left)/r.width*n);
+    seekFrame(Math.max(0,Math.min(n-1,i)));
+  }
+  ticksEl.addEventListener('pointerdown',function(e){
+    ticksDrag=true; ticksEl.setPointerCapture(e.pointerId); ticksSeek(e);
+  });
+  ticksEl.addEventListener('pointermove',function(e){ if(ticksDrag) ticksSeek(e); });
+  ticksEl.addEventListener('pointerup',function(){ ticksDrag=false; });
+  ticksEl.addEventListener('pointercancel',function(){ ticksDrag=false; });
+
+  document.addEventListener('keydown',function(e){
+    if(/^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
+    if(e.key===' '){ e.preventDefault(); setPlaying(!playing); }
+    else if(e.key==='ArrowLeft'){ e.preventDefault(); seekFrame(Math.floor(curT*frameCount())-1); }
+    else if(e.key==='ArrowRight'){ e.preventDefault(); seekFrame(Math.floor(curT*frameCount())+1); }
+  });
+
+  function frame(now){
+    if(recording){ requestAnimationFrame(frame); return; }
+    if(playing){
+      curT=((now-t0)/(S.loop*1000))%1;
+      if(curT<0) curT+=1;        // rAF's timestamp can predate t0, and JS % keeps the sign
+    }
+    draw(curT); markNow(curT); syncTransport();
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  /* ---------- object list ---------- */
+  var objsEl=document.getElementById('objs');
+  function renderList(){
+    objsEl.innerHTML='';
+    S.objs.forEach(function(o,i){
+      var row=document.createElement('div');
+      row.className='obj'+(i===S.sel?' sel':'');
+      var badge = o.cut ? '<span class="mult">'+(o.split&&o.split.on?'\u2702 ':'')+(o.mult<0?'−':'')+Math.abs(o.mult)+'×</span>' : '';
+      row.innerHTML='<div class="thumb" style="background-image:url('+o.url+')"></div>'+
+                    '<div class="nm">'+o.name+'</div>'+badge+
+                    '<span class="w" data-i="'+i+'"></span>'+
+                    '<button class="cut'+(o.cut?' on':'')+'" data-a="cut">cut</button>'+
+                    '<button class="del" data-a="del" title="Remove">&times;</button>';
+      row.addEventListener('click',function(e){
+        var b=e.target.closest('button');
+        if(b&&b.dataset.a==='cut'){
+          o.cut=!o.cut;
+          if(o.cut && Math.abs(o.mult)===1 && !o.multTouched){
+            o.mult=(cutList().length%2===0)?1:-1;   // counter-rotation is free difficulty-wise
+          }
+          S.sel=i; renderList(); syncSel(); syncTravel(); rebuildRuler(); return;
+        }
+        if(b&&b.dataset.a==='del'){ removeObj(i); return; }
+        S.sel=i; renderList(); syncSel(); paintBadges();
+      });
+      objsEl.appendChild(row);
+    });
+    var any=cutList().length>0;
+    document.getElementById('rec').disabled=!any;
+    document.getElementById('snap').disabled=!S.objs.length;
+    paintBadges();
+  }
+
+  function removeObj(i){
+    S.objs.splice(i,1);
+    if(S.sel===i) S.sel=S.objs.length?Math.min(i,S.objs.length-1):-1;
+    else if(S.sel>i) S.sel--;
+    renderList(); syncSel(); syncTravel(); rebuildRuler();
+  }
+
+  function syncSel(){
+    var o=S.objs[S.sel];
+    var sc=document.getElementById('oscale'), rt=document.getElementById('orot'), ml=document.getElementById('omult');
+    sc.disabled=!o; rt.disabled=!o; ml.disabled=!o||!o.cut;
+    document.getElementById('cutPane').style.opacity=(o&&o.cut)?'1':'0.42';
+    if(!o){
+      document.getElementById('vScale').textContent='—';
+      document.getElementById('vRot').textContent='—';
+      document.getElementById('vMult').textContent='—';
+      var c0=document.getElementById('splitOn'); c0.checked=false; c0.disabled=true;
+      ['splitS','splitX','splitY'].forEach(function(id){ document.getElementById(id).disabled=true; });
+      document.getElementById('splitPane').style.opacity='0.42';
+      return;
+    }
+    sc.value=Math.round(longSide(o));
+    rt.value=Math.round(o.rot*180/Math.PI);
+    ml.value=o.mult;
+    document.getElementById('vScale').textContent=Math.round(longSide(o))+' px';
+    document.getElementById('vRot').textContent=Math.round(o.rot*180/Math.PI)+'°';
+    document.getElementById('vMult').textContent=o.cut?((o.mult<0?'reverse ':'')+Math.abs(o.mult)+'×'):'not cut';
+    Array.prototype.forEach.call(document.getElementById('omodeSeg').children,function(c){
+      c.setAttribute('aria-pressed',String((c.dataset.omode||'')===(o.mode||'')));
+    });
+
+    var sp=o.split||{on:false,shape:'circle',fx:0,fy:0,fs:0.40};
+    var chk=document.getElementById('splitOn');
+    chk.disabled=false; chk.checked=!!sp.on;
+    document.getElementById('splitPane').style.opacity=sp.on?'1':'0.42';
+    ['splitS','splitX','splitY'].forEach(function(id){ document.getElementById(id).disabled=!sp.on; });
+    document.getElementById('splitS').value=Math.round(sp.fs*100);
+    document.getElementById('splitX').value=Math.round(sp.fx*100);
+    document.getElementById('splitY').value=Math.round(sp.fy*100);
+    document.getElementById('vSplitS').textContent=Math.round(sp.fs*100)+'%';
+    document.getElementById('vSplitX').textContent=Math.round(sp.fx*100)+'%';
+    document.getElementById('vSplitY').textContent=Math.round(sp.fy*100)+'%';
+    Array.prototype.forEach.call(document.getElementById('splitShapeSeg').children,function(c){
+      c.setAttribute('aria-pressed',String(c.dataset.sshape===sp.shape));
+    });
+    checkSpin();
+  }
+
+  /* ---------- loading ---------- */
+  var drop=document.getElementById('drop'), fileIn=document.getElementById('file');
+
+  function addFiles(list){
+    Array.prototype.forEach.call(list,function(f){
+      if(!/^image\//.test(f.type)) return;
+      var rd=new FileReader();
+      rd.onload=function(e){
+        var im=new Image();
+        im.onload=function(){
+          var n=S.objs.length;
+          var o={
+            img:im, url:e.target.result, name:f.name.replace(/\.[^.]+$/,'').slice(0,20),
+            scale:340/Math.max(im.naturalWidth,im.naturalHeight),
+            rot:0, mult:1, mode:'', cut:(n===0), win:0,
+            split:{on:false,shape:'circle',fx:0,fy:0,fs:0.40},
+            x:Math.max(120,Math.min(W-120,300+(n%3)*240)),
+            y:Math.max(360,Math.min(H-200,640+Math.floor(n/3)*340)),
+            alpha:alphaMap(im)
+          };
+          o.sil=makeSil(im,inkColor());
+          S.objs.push(o);
+          S.sel=S.objs.length-1;
+          renderList(); syncSel(); syncTravel(); rebuildRuler();
+        };
+        im.src=e.target.result;
+      };
+      rd.readAsDataURL(f);
+    });
+  }
+
+  drop.addEventListener('click',function(){ fileIn.click(); });
+  drop.addEventListener('keydown',function(e){
+    if(e.key==='Enter'||e.key===' '){ e.preventDefault(); fileIn.click(); }
+  });
+  fileIn.addEventListener('change',function(){ addFiles(fileIn.files); fileIn.value=''; });
+  ['dragenter','dragover'].forEach(function(ev){
+    drop.addEventListener(ev,function(e){ e.preventDefault(); drop.classList.add('over'); });
+  });
+  ['dragleave','drop'].forEach(function(ev){
+    drop.addEventListener(ev,function(e){ e.preventDefault(); drop.classList.remove('over'); });
+  });
+  drop.addEventListener('drop',function(e){ addFiles(e.dataTransfer.files); });
+
+  /* ---------- select + drag ---------- */
+  function toCanvas(e){
+    var r=view.getBoundingClientRect();
+    return { x:(e.clientX-r.left)/r.width*W, y:(e.clientY-r.top)/r.height*H };
+  }
+  function hitTest(o,px,py){
+    var dx=px-o.x, dy=py-o.y;
+    var c=Math.cos(-o.rot), s=Math.sin(-o.rot);
+    var lx=dx*c-dy*s, ly=dx*s+dy*c;
+    var w=dispW(o), h=dispH(o);
+    var u=(lx+w/2)/w, v=(ly+h/2)/h;
+    if(u<0||u>1||v<0||v>1) return false;
+    var am=o.alpha;
+    var ax=Math.min(am.w-1,Math.floor(u*am.w));
+    var ay=Math.min(am.h-1,Math.floor(v*am.h));
+    return am.a[ay*am.w+ax]>24;
+  }
+
+  var drag=null;
+  view.addEventListener('pointerdown',function(e){
+    var p=toCanvas(e), found=-1;
+    for(var i=S.objs.length-1;i>=0;i--){ if(hitTest(S.objs[i],p.x,p.y)){ found=i; break; } }
+    if(found<0){ S.sel=-1; renderList(); syncSel(); return; }
+    S.sel=found; renderList(); syncSel();
+    var o=S.objs[found];
+    drag={i:found,ox:p.x-o.x,oy:p.y-o.y};
+    view.setPointerCapture(e.pointerId);
+    view.classList.add('grabbing');
+  });
+  view.addEventListener('pointermove',function(e){
+    if(!drag) return;
+    var p=toCanvas(e), o=S.objs[drag.i];
+    o.x=Math.max(40,Math.min(W-40,p.x-drag.ox));
+    o.y=Math.max(40,Math.min(H-40,p.y-drag.oy));
+  });
+  function endDrag(){ if(drag){ drag=null; rebuildRuler(); } view.classList.remove('grabbing'); }
+  view.addEventListener('pointerup',endDrag);
+  view.addEventListener('pointercancel',endDrag);
+
+  /* ---------- controls ---------- */
+  function seg(id,key,after){
+    var box=document.getElementById(id);
+    box.addEventListener('click',function(e){
+      var b=e.target.closest('button'); if(!b) return;
+      S[key]=b.dataset[key];
+      Array.prototype.forEach.call(box.children,function(c){ c.setAttribute('aria-pressed',String(c===b)); });
+      if(after) after();
+    });
+  }
+  document.getElementById('fpsSeg').addEventListener('click',function(e){
+    var b=e.target.closest('button'); if(!b||recording) return;
+    FPS=parseInt(b.dataset.fps,10);
+    Array.prototype.forEach.call(this.children,function(c){ c.setAttribute('aria-pressed',String(c===b)); });
+    document.getElementById('rulerK').textContent='Frame ruler · '+FPS+' fps · click to scrub';
+    lastTick=-1;
+    rebuildRuler(); syncTransport();
+  });
+
+  seg('bgSeg','bg',refreshSils);
+  seg('modeSeg','mode',function(){ syncTravel(); rebuildRuler(); });
+  seg('styleSeg','style',checkSpin);
+
+  document.getElementById('splitOn').addEventListener('change',function(){
+    var o=S.objs[S.sel]; if(!o){ this.checked=false; return; }
+    if(!o.split) o.split={on:false,shape:'circle',fx:0,fy:0,fs:0.40};
+    o.split.on=this.checked;
+    if(o.split.on && !o.cut) o.cut=true;      // nothing moves unless the object is cut
+    buildSplit(o);
+    renderList(); syncSel(); syncTravel(); rebuildRuler();
+  });
+
+  document.getElementById('splitShapeSeg').addEventListener('click',function(e){
+    var b=e.target.closest('button'); if(!b) return;
+    var o=S.objs[S.sel]; if(!o||!o.split) return;
+    o.split.shape=b.dataset.sshape;
+    Array.prototype.forEach.call(this.children,function(c){ c.setAttribute('aria-pressed',String(c===b)); });
+    buildSplit(o); rebuildRuler();
+  });
+
+  function splitSlider(id,out,key,scale){
+    var el=document.getElementById(id);
+    el.addEventListener('input',function(){
+      var v=parseFloat(el.value);
+      document.getElementById(out).textContent=Math.round(v)+'%';
+      var o=S.objs[S.sel]; if(!o||!o.split) return;
+      o.split[key]=v/scale;
+      buildSplit(o); rebuildRuler();
+    });
+  }
+  splitSlider('splitS','vSplitS','fs',100);
+  splitSlider('splitX','vSplitX','fx',100);
+  splitSlider('splitY','vSplitY','fy',100);
+
+  document.getElementById('omodeSeg').addEventListener('click',function(e){
+    var b=e.target.closest('button'); if(!b) return;
+    var o=S.objs[S.sel]; if(!o) return;
+    o.mode=b.dataset.omode||'';
+    Array.prototype.forEach.call(this.children,function(c){ c.setAttribute('aria-pressed',String(c===b)); });
+    syncTravel(); rebuildRuler();
+  });
+
+  function syncTravel(){
+    // travel only means something for drift and zoom
+    var used=S.objs.some(function(o){ return o.cut && (modeOf(o)==='orbit'||modeOf(o)==='pulse'); });
+    document.getElementById('rowTravel').classList.toggle('off',!used);
+  }
+
+  function slider(id,out,fmt,apply){
+    var el=document.getElementById(id);
+    el.addEventListener('input',function(){
+      var v=parseFloat(el.value);
+      var shown=apply(v);
+      document.getElementById(out).textContent=fmt(shown===undefined?v:shown);
+    });
+  }
+  slider('oscale','vScale',function(v){return Math.round(v)+' px';},function(v){
+    var o=S.objs[S.sel]; if(!o) return;
+    o.scale=v/Math.max(o.img.naturalWidth,o.img.naturalHeight);
+    rebuildRuler();          // split canvases are in natural pixels, so scale alone is enough
+  });
+  slider('orot','vRot',function(v){return Math.round(v)+'°';},function(v){
+    var o=S.objs[S.sel]; if(!o) return;
+    o.rot=v*Math.PI/180;
+  });
+  slider('omult','vMult',function(v){return v;},function(v){
+    var o=S.objs[S.sel]; if(!o||!o.cut) return 'not cut';
+    if(v===0) v=1;
+    document.getElementById('omult').value=v;
+    o.mult=v; o.multTouched=true;
+    renderList(); rebuildRuler();
+    return (v<0?'reverse ':'')+Math.abs(v)+'×';
+  });
+  slider('cycles','vCycles',function(v){return v;},function(v){ S.cycles=v; rebuildRuler(); });
+  slider('travel','vTravel',function(v){return Math.round(v*100)+'%';},function(v){ S.travel=v/100; rebuildRuler(); return S.travel; });
+  slider('fade','vFade',function(v){return Math.round(v*100)+'%';},function(v){ S.fade=v/100; checkSlot(); return S.fade; });
+  slider('slotA','vSlot',function(v){return v===0?'hidden':Math.round(v*100)+'%';},function(v){ S.slotA=v/100; checkSlot(); return S.slotA; });
+
+  function checkSpin(){
+    var el=document.getElementById('spinWarn');
+    var o=S.objs[S.sel];
+    var cue = o ? (S.style==='flat' ? o.cueFlat : o.cueTrue) : undefined;
+    el.hidden = !(o && isSplit(o) && modeOf(o)==='rotate' && cue!==undefined && cue<0.06);
+  }
+
+  // a slot as opaque as the piece hides the whole game, so say so
+  function checkSlot(){
+    document.getElementById('slotWarn').hidden = !(S.slotA>0 && S.slotA>=minPieceAlpha()*0.9);
+  }
+  slider('loop','vLoop',function(v){return v.toFixed(1)+' s';},function(v){ S.loop=v; rebuildRuler(); });
+  slider('tol','vTol',function(v){return v+' px';},function(v){ S.tol=v; rebuildRuler(); });
+  slider('reps','vReps',function(v){return v;},function(v){ S.reps=v; });
+
+  document.getElementById('cap').addEventListener('input',function(){ S.cap=this.value; });
+  document.getElementById('capOn').addEventListener('change',function(){ S.capOn=this.checked; });
+  document.getElementById('autoCap').addEventListener('change',function(){ S.autoCap=this.checked; });
+
+  /* ---------- output ---------- */
+  function save(blob,name){
+    var u=URL.createObjectURL(blob), a=document.createElement('a');
+    a.href=u; a.download=name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(u); },4000);
+  }
+
+  document.getElementById('snap').addEventListener('click',function(){
+    var keep=S.sel; S.sel=-1; draw(curT);
+    view.toBlob(function(b){ save(b,'silhouette-frame.png'); S.sel=keep; },'image/png');
+  });
+
+  /* Minimal MP4 (ISO-BMFF) muxer for a single H.264 video track.
+     Frame timing is written explicitly into stts, so the output duration is
+     exact rather than derived from wall-clock capture. */
+
+  function U32(n){ return new Uint8Array([(n>>>24)&255,(n>>>16)&255,(n>>>8)&255,n&255]); }
+  function U16(n){ return new Uint8Array([(n>>8)&255,n&255]); }
+  function STR(s){ var a=new Uint8Array(s.length); for(var i=0;i<s.length;i++) a[i]=s.charCodeAt(i)&255; return a; }
+  function ZERO(n){ return new Uint8Array(n); }
+  function cat(list){
+    var len=0,i;
+    for(i=0;i<list.length;i++) len+=list[i].length;
+    var out=new Uint8Array(len), off=0;
+    for(i=0;i<list.length;i++){ out.set(list[i],off); off+=list[i].length; }
+    return out;
+  }
+  function box(type, parts){
+    var body=cat(parts);
+    return cat([U32(body.length+8), STR(type), body]);
+  }
+  function fullBox(type, version, flags, parts){
+    return box(type, [new Uint8Array([version,(flags>>16)&255,(flags>>8)&255,flags&255])].concat(parts));
+  }
+
+  var MATRIX = cat([U32(0x00010000),U32(0),U32(0),U32(0),U32(0x00010000),U32(0),U32(0),U32(0),U32(0x40000000)]);
+
+  function buildMP4(opts){
+    var sizes = opts.sizes;          // byte length of each sample
+    var data  = opts.data;           // concatenated samples (AVCC, length-prefixed)
+    var keys  = opts.keys;           // indices of sync samples
+    var w = opts.width, h = opts.height;
+    var avcC = opts.avcC;            // decoder description from VideoEncoder
+    var fps = opts.fps;
+
+    var TS = 90000;
+    var delta = Math.round(TS/fps);
+    var n = sizes.length;
+    var duration = n*delta;
+
+    var ftyp = box('ftyp',[STR('isom'),U32(0x200),STR('isom'),STR('iso2'),STR('avc1'),STR('mp41')]);
+    var mdat = cat([U32(data.length+8), STR('mdat'), data]);
+    var sampleOffset = ftyp.length + 8;   // first sample byte, for stco
+
+    var mvhd = fullBox('mvhd',0,0,[
+      U32(0),U32(0),U32(TS),U32(duration),
+      U32(0x00010000),U16(0x0100),ZERO(2),ZERO(8),
+      MATRIX, ZERO(24), U32(2)
+    ]);
+
+    var tkhd = fullBox('tkhd',0,7,[
+      U32(0),U32(0),U32(1),ZERO(4),U32(duration),
+      ZERO(8),U16(0),U16(0),U16(0),ZERO(2),
+      MATRIX, U32(w*65536), U32(h*65536)
+    ]);
+
+    var mdhd = fullBox('mdhd',0,0,[U32(0),U32(0),U32(TS),U32(duration),U16(0x55C4),ZERO(2)]);
+    var hdlr = fullBox('hdlr',0,0,[U32(0),STR('vide'),ZERO(12),STR('VideoHandler'),ZERO(1)]);
+    var vmhd = fullBox('vmhd',0,1,[ZERO(8)]);
+    var dref = fullBox('dref',0,0,[U32(1), fullBox('url ',0,1,[])]);
+    var dinf = box('dinf',[dref]);
+
+    var avcCBox = box('avcC',[avcC]);
+    var avc1 = box('avc1',[
+      ZERO(6), U16(1),
+      ZERO(2), ZERO(2), ZERO(12),
+      U16(w), U16(h),
+      U32(0x00480000), U32(0x00480000),
+      ZERO(4), U16(1), ZERO(32),
+      U16(0x0018), new Uint8Array([255,255]),
+      avcCBox
+    ]);
+    var stsd = fullBox('stsd',0,0,[U32(1), avc1]);
+
+    var stts = fullBox('stts',0,0,[U32(1), U32(n), U32(delta)]);
+
+    var stssParts=[U32(keys.length)];
+    for(var k=0;k<keys.length;k++) stssParts.push(U32(keys[k]+1));
+    var stss = fullBox('stss',0,0,stssParts);
+
+    var stsc = fullBox('stsc',0,0,[U32(1), U32(1), U32(n), U32(1)]);
+
+    var stszParts=[U32(0),U32(n)];
+    for(var s=0;s<n;s++) stszParts.push(U32(sizes[s]));
+    var stsz = fullBox('stsz',0,0,stszParts);
+
+    var stco = fullBox('stco',0,0,[U32(1), U32(sampleOffset)]);
+
+    var stbl = box('stbl',[stsd,stts,stss,stsc,stsz,stco]);
+    var minf = box('minf',[vmhd,dinf,stbl]);
+    var mdia = box('mdia',[mdhd,hdlr,minf]);
+    var trak = box('trak',[tkhd,mdia]);
+    var moov = box('moov',[mvhd,trak]);
+
+    return cat([ftyp, mdat, moov]);
+  }
+
+  /* ---------- export ---------- */
+  var recording=false, cancelExport=false, expI=0, expTotal=0;
+  var recBtn=document.getElementById('rec'), recDot=document.getElementById('recdot'), recTime=document.getElementById('recTime');
+
+  /* 1080x1920 is 8160 macroblocks, so 60fps needs 489,600 MB/s — past level 4.0's
+     245,760 ceiling. Ask for 4.2 or 5.0 when running at 60. Baseline profile first
+     either way: no B-frames, so decode order matches display order. */
+  function codecList(){
+    var levels = (FPS>30) ? ['2A','32'] : ['28','2A','32'];
+    var profiles = ['42E0','4D00','6400'];
+    var out=[];
+    for(var l=0;l<levels.length;l++)
+      for(var p=0;p<profiles.length;p++)
+        out.push('avc1.'+profiles[p]+levels[l]);
+    return out;
+  }
+  async function pickCodec(){
+    if(!window.VideoEncoder||!VideoEncoder.isConfigSupported) return null;
+    var CODECS=codecList();
+    var rate=Math.min(20000000,Math.round(12000000*FPS/30));
+    for(var i=0;i<CODECS.length;i++){
+      var cfg={codec:CODECS[i],width:W,height:H,bitrate:rate,framerate:FPS,
+               latencyMode:'realtime',avc:{format:'avc'}};
+      try{
+        var res=await VideoEncoder.isConfigSupported(cfg);
+        if(res&&res.supported) return cfg;
+      }catch(e){}
+    }
+    return null;
+  }
+
+  function setExportUI(on){
+    recording=on;
+    recBtn.textContent = on ? 'Stop export' : 'Export MP4';
+    recBtn.classList.toggle('rec',on);
+    recDot.classList.toggle('on',on);
+    if(on){ playing=false; playBtn.textContent='\u25B6'; playBtn.classList.add('paused'); }
+  }
+  function progress(){ recTime.textContent = expTotal ? (expI+'/'+expTotal) : ''; }
+
+  /* Every frame is drawn on demand and stamped with an exact presentation time,
+     so the file has precisely the frames and duration shown in the preview.
+     Nothing here depends on wall-clock capture. */
+  async function exportMP4(cfg){
+    var n=frameCount(), total=n*S.reps;
+    var frameDurUs=Math.round(1000000/FPS);
+    var sizes=[], keys=[], blobs=[], desc=null;
+
+    var encoder=new VideoEncoder({
+      output:function(chunk,meta){
+        // the avcC description arrives as metadata on the first chunk
+        if(meta&&meta.decoderConfig&&meta.decoderConfig.description&&!desc){
+          desc=new Uint8Array(meta.decoderConfig.description);
+        }
+        var b=new Uint8Array(chunk.byteLength);
+        chunk.copyTo(b);
+        if(chunk.type==='key') keys.push(sizes.length);
+        sizes.push(b.length); blobs.push(b);
+      },
+      error:function(e){ console.error('encoder:',e); }
+    });
+    encoder.configure(cfg);
+
+    expI=0; expTotal=total; progress();
+
+    for(var i=0;i<total && !cancelExport;i++){
+      curT=(i%n)/n;
+      draw(curT);
+      var vf=new VideoFrame(view,{timestamp:i*frameDurUs,duration:frameDurUs});
+      encoder.encode(vf,{keyFrame:(i%FPS===0)});
+      vf.close();
+      expI=i+1; progress();
+      if(encoder.encodeQueueSize>4 || (i%6===0)){
+        await new Promise(function(r){ setTimeout(r,0); });
+      }
+    }
+    await encoder.flush();
+    encoder.close();
+
+    if(!sizes.length) return false;
+    if(!desc){ return false; }
+
+    var data=cat(blobs);
+    var mp4=buildMP4({sizes:sizes,data:data,keys:keys.length?keys:[0],
+                      width:W,height:H,avcC:desc,fps:FPS});
+    save(new Blob([mp4],{type:'video/mp4'}),'silhouette-pause-'+cutList().length+'piece.mp4');
+    return true;
+  }
+
+  /* Fallback for browsers without WebCodecs: real-time capture, still frame-driven. */
+  function exportViaRecorder(){
+    var types=['video/mp4;codecs=avc1.42E028','video/mp4','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
+    var type='';
+    for(var i=0;i<types.length;i++){
+      if(window.MediaRecorder&&MediaRecorder.isTypeSupported(types[i])){ type=types[i]; break; }
+    }
+    if(!type||!view.captureStream){ alert('This browser cannot export video. Try Chrome, Edge or Firefox on desktop.'); setExportUI(false); return; }
+
+    var manual=true, stream, track;
+    try{
+      stream=view.captureStream(0);
+      track=stream.getVideoTracks()[0];
+      if(!track||typeof track.requestFrame!=='function') manual=false;
+    }catch(e){ manual=false; }
+    if(!manual){ try{ stream=view.captureStream(FPS); }catch(e2){ alert('Export failed: '+e2.message); setExportUI(false); return; } }
+
+    var rec;
+    try{ rec=new MediaRecorder(stream,{mimeType:type,videoBitsPerSecond:Math.min(20000000,Math.round(12000000*FPS/30))}); }
+    catch(e3){ alert('Export failed: '+e3.message); setExportUI(false); return; }
+
+    var isMp4=type.indexOf('mp4')>=0, chunks=[], timer=null;
+    rec.ondataavailable=function(e){ if(e.data.size) chunks.push(e.data); };
+    rec.onstop=function(){
+      if(timer) clearTimeout(timer);
+      if(chunks.length) save(new Blob(chunks,{type:isMp4?'video/mp4':'video/webm'}),
+        'silhouette-pause-'+cutList().length+'piece.'+(isMp4?'mp4':'webm'));
+      finishExport();
+    };
+    var n=frameCount(); expTotal=n*S.reps; expI=0; progress();
+    rec.start();
+    var interval=1000/FPS, startMs=performance.now();
+    function step(){
+      if(cancelExport||expI>=expTotal){ if(rec.state!=='inactive') rec.stop(); return; }
+      curT=(expI%n)/n;
+      draw(curT);
+      if(manual&&track) try{ track.requestFrame(); }catch(e4){}
+      expI++; progress();
+      timer=setTimeout(step,Math.max(0,startMs+expI*interval-performance.now()));
+    }
+    timer=setTimeout(step,0);
+  }
+
+  function finishExport(){
+    cancelExport=false; expTotal=0; expI=0;
+    setExportUI(false);
+    S.sel=keepSelDuringExport; renderList(); syncSel();
+    curT=0; setPlaying(true);
+    rebuildRuler();
+  }
+
+  var keepSelDuringExport=-1;
+  recBtn.addEventListener('click',async function(){
+    if(recording){ cancelExport=true; return; }
+    keepSelDuringExport=S.sel;
+    S.sel=-1; renderList();
+    cancelExport=false;
+    setExportUI(true);
+    var cfg=await pickCodec();
+    if(cfg){
+      var ok=false;
+      try{ ok=await exportMP4(cfg); }
+      catch(e){ console.error(e); ok=false; }
+      if(!ok && !cancelExport){ exportViaRecorder(); return; }
+      finishExport();
+    } else {
+      exportViaRecorder();
+    }
+  });
+
+  renderList(); syncSel(); syncTravel(); checkSlot(); rebuildRuler(); checkSpin();
+})();
+</script>
+</body>
+</html>
