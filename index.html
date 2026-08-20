@@ -328,8 +328,8 @@
       </div>
       <input type="password" id="vgKey" placeholder="OpenAI API key (sk-...)" autocomplete="off">
       <button class="go" id="vgGen" style="margin-top:10px">Generate voice</button>
-      <button class="ghost" id="vgPick">Or use an audio file</button>
-      <input type="file" id="vgFile" accept="audio/*" hidden>
+      <button class="ghost" id="vgPick">Or use an audio file (mp3, wav, m4a)</button>
+      <input type="file" id="vgFile" hidden>
       <audio id="vgPlay" controls hidden style="width:100%;margin-top:10px"></audio>
       <button class="ghost" id="vgFit" hidden>Fit video length to voice</button>
       <button class="ghost" id="vgClear" hidden>Remove voice</button>
@@ -1567,8 +1567,13 @@
     var f=this.files[0]; this.value='';
     if(!f) return;
     vgSay('Reading '+f.name+'…');
-    try{ await loadAudioBytes(await f.arrayBuffer(),f.name); }
-    catch(e){ vgSay('Could not decode that audio file.',true); }
+    try{
+      var bytes=await f.arrayBuffer();
+      if(!bytes||!bytes.byteLength) throw new Error('empty');
+      await loadAudioBytes(bytes,f.name);
+    }catch(e){
+      vgSay('Could not read '+f.name+'. Try an mp3, wav or m4a — on iPad, tap Browse in the picker and choose the file from Files rather than the Music library.',true);
+    }
   });
 
   document.getElementById('vgFit').addEventListener('click',function(){
@@ -1747,20 +1752,43 @@
     }catch(e){ manual=false; }
     if(!manual){ try{ stream=view.captureStream(FPS); }catch(e2){ alert('Export failed: '+e2.message); setExportUI(false); return; } }
 
+    /* Safari has no WebCodecs AudioEncoder, so the voice is mixed in live here
+       through a MediaStream instead of being encoded frame by frame. */
+    var acCtx=null, srcNode=null;
+    if(S.audio&&S.audio.buffer){
+      try{
+        var AC=window.AudioContext||window.webkitAudioContext;
+        acCtx=new AC();
+        var dest=acCtx.createMediaStreamDestination();
+        srcNode=acCtx.createBufferSource();
+        srcNode.buffer=S.audio.buffer;
+        srcNode.connect(dest);
+        dest.stream.getAudioTracks().forEach(function(tr){ stream.addTrack(tr); });
+      }catch(eA){ acCtx=null; srcNode=null; }
+    }
+
     var rec;
     try{ rec=new MediaRecorder(stream,{mimeType:type,videoBitsPerSecond:Math.min(20000000,Math.round(12000000*FPS/30))}); }
-    catch(e3){ alert('Export failed: '+e3.message); setExportUI(false); return; }
+    catch(e3){
+      if(acCtx) try{ acCtx.close(); }catch(e){}
+      alert('Export failed: '+e3.message); setExportUI(false); return;
+    }
 
     var isMp4=type.indexOf('mp4')>=0, chunks=[], timer=null;
     rec.ondataavailable=function(e){ if(e.data.size) chunks.push(e.data); };
     rec.onstop=function(){
       if(timer) clearTimeout(timer);
+      if(srcNode) try{ srcNode.stop(); }catch(e){}
+      if(acCtx) try{ acCtx.close(); }catch(e){}
       if(chunks.length) save(new Blob(chunks,{type:isMp4?'video/mp4':'video/webm'}),
         'silhouette-pause-'+cutList().length+'piece.'+(isMp4?'mp4':'webm'));
       finishExport();
     };
     var n=frameCount(); expTotal=n*S.reps; expI=0; progress();
     rec.start();
+    if(acCtx&&srcNode){
+      try{ if(acCtx.state==='suspended') acCtx.resume(); srcNode.start(); }catch(eS){}
+    }
     var interval=1000/FPS, startMs=performance.now();
     function step(){
       if(cancelExport||expI>=expTotal){ if(rec.state!=='inactive') rec.stop(); return; }
@@ -1789,6 +1817,15 @@
     cancelExport=false;
     setExportUI(true);
     var cfg=await pickCodec();
+    var needAudio=!!(S.audio&&S.audio.buffer);
+    var canEncodeAudio=!!(window.AudioEncoder&&window.AudioData);
+    if(needAudio&&!canEncodeAudio){
+      // this browser cannot encode AAC directly, so take the live-capture route,
+      // which still produces a file with sound
+      vgSay('This browser records the voice in real time, so the export takes about as long as the clip.');
+      exportViaRecorder();
+      return;
+    }
     if(cfg){
       var ok=false;
       try{ ok=await exportMP4(cfg); }
