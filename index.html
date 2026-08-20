@@ -68,7 +68,15 @@
   input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--hot);cursor:pointer;border:2px solid var(--panel)}
   input[type=range]:focus-visible{outline:2px solid var(--lock);outline-offset:4px}
   input[type=text]{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:9px 10px;font-size:13px}
-  input[type=text]:focus{outline:none;border-color:var(--hot)}
+  input[type=text]:focus,input[type=password]:focus,textarea:focus,select:focus{outline:none;border-color:var(--hot)}
+  input[type=password],textarea,select{
+    width:100%;background:var(--panel2);border:1px solid var(--line);
+    border-radius:3px;padding:9px 10px;font-size:13px;font-family:inherit;color:var(--text);
+  }
+  textarea{resize:vertical;line-height:1.5;margin-bottom:8px}
+  select{appearance:none;cursor:pointer}
+  .vgrow{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}
+  #vgDur{color:var(--lock)}
   .check{display:flex;align-items:center;gap:9px;margin-top:11px;color:var(--muted);font-size:12.5px;cursor:pointer}
   .check input{accent-color:var(--hot);width:15px;height:15px}
   .sub{font-family:var(--display);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin:16px 0 9px;padding-top:14px;border-top:1px solid var(--line)}
@@ -192,9 +200,18 @@
 
     <div class="group">
       <h2>Selected object</h2>
+      <label class="check" style="margin-top:0"><input type="checkbox" id="bgRemove" disabled> Remove its background</label>
       <div class="row">
+        <label>Removal strength <b id="vBgTol">60</b></label>
+        <input type="range" id="bgTol" min="10" max="200" step="5" value="60" disabled>
+      </div>
+      <p class="note" id="bgHint" hidden>This image has no transparency, so it probably still has a background. Tick the box above to strip it.</p>
+      <p class="note">Fills inward from the edges, so white <i>inside</i> the object is kept. Raise the strength if a fringe survives, lower it if the object gets eaten.</p>
+
+      <p class="sub">Placement</p>
+      <div class="row" style="margin-top:0">
         <label>Size <b id="vScale">—</b></label>
-        <input type="range" id="oscale" min="90" max="760" step="5" value="340" disabled>
+        <input type="range" id="oscale" min="40" max="2000" step="10" value="340" disabled>
       </div>
       <div class="row">
         <label>Resting angle <b id="vRot">—</b></label>
@@ -210,7 +227,7 @@
         </div>
         <div class="row">
           <label>Piece size <b id="vSplitS">40%</b></label>
-          <input type="range" id="splitS" min="10" max="90" step="2" value="40" disabled>
+          <input type="range" id="splitS" min="5" max="95" step="1" value="40" disabled>
         </div>
         <div class="row">
           <label>Piece across <b id="vSplitX">0%</b></label>
@@ -285,15 +302,39 @@
       <p class="note warn" id="slotWarn" hidden>Slot is as solid as the moving piece, so the two look identical when landed and the puzzle reads as already solved.</p>
       <div class="row">
         <label>Catch tolerance <b id="vTol">30 px</b></label>
-        <input type="range" id="tol" min="6" max="120" step="2" value="30">
+        <input type="range" id="tol" min="6" max="300" step="2" value="30">
       </div>
     </div>
 
     <div class="group">
       <h2>Caption</h2>
       <input type="text" id="cap" value="PAUSE TO FIT THE SHADOW" maxlength="34">
-      <label class="check"><input type="checkbox" id="capOn" checked> Burn caption into the video</label>
+      <label class="check"><input type="checkbox" id="capOn"> Burn caption into the video</label>
       <label class="check"><input type="checkbox" id="autoCap" checked> Match caption to the number of pieces</label>
+    </div>
+
+    <div class="group">
+      <h2>Voice-over <span id="vgDur"></span></h2>
+      <textarea id="vgText" rows="3" placeholder="Only 1 in 100 can pause on the exact frame. Can you?"></textarea>
+      <div class="vgrow">
+        <select id="vgVoice" aria-label="Voice">
+          <option value="alloy">Alloy</option><option value="ash">Ash</option>
+          <option value="ballad">Ballad</option><option value="coral">Coral</option>
+          <option value="echo">Echo</option><option value="fable">Fable</option>
+          <option value="nova" selected>Nova</option><option value="onyx">Onyx</option>
+          <option value="sage">Sage</option><option value="shimmer">Shimmer</option>
+        </select>
+        <input type="text" id="vgModel" value="gpt-4o-mini-tts" aria-label="Model">
+      </div>
+      <input type="password" id="vgKey" placeholder="OpenAI API key (sk-...)" autocomplete="off">
+      <button class="go" id="vgGen" style="margin-top:10px">Generate voice</button>
+      <button class="ghost" id="vgPick">Or use an audio file</button>
+      <input type="file" id="vgFile" accept="audio/*" hidden>
+      <audio id="vgPlay" controls hidden style="width:100%;margin-top:10px"></audio>
+      <button class="ghost" id="vgFit" hidden>Fit video length to voice</button>
+      <button class="ghost" id="vgClear" hidden>Remove voice</button>
+      <p class="note" id="vgStatus"></p>
+      <p class="note warn">Your key is sent straight from this browser to OpenAI for the one request and is never stored or saved into this file. Use a project key you can revoke.</p>
     </div>
 
     <div class="group">
@@ -308,7 +349,7 @@
       </div>
       <button class="go" id="rec" disabled>Export MP4</button>
       <button class="ghost" id="snap" disabled>Save this frame as PNG</button>
-      <p class="note">Renders each frame explicitly and encodes a 1080×1920 <b>MP4</b> with exactly the frames and duration you see in the preview. 60 fps is twice as smooth and twice the file size; the puzzle stays the same difficulty because the catch window is the same length in seconds either way.</p>
+      <p class="note">Any voice-over above is encoded into the same file. Renders each frame explicitly and encodes a 1080×1920 <b>MP4</b> with exactly the frames and duration you see in the preview. 60 fps is twice as smooth and twice the file size; the puzzle stays the same difficulty because the catch window is the same length in seconds either way.</p>
     </div>
   </aside>
 
@@ -356,7 +397,8 @@
     bg:'#ffffff', mode:'rotate', cycles:1, travel:0.40, loop:3,
     tol:30, reps:3,
     style:'true', fade:0.55, slotA:0.14,
-    cap:'PAUSE TO FIT THE SHADOW', capOn:true, autoCap:true
+    cap:'PAUSE TO FIT THE SHADOW', capOn:false, autoCap:true,
+    audio:null
   };
 
   function inkColor(){ return S.bg==='#12141c' ? '#f2f5ff' : '#10131f'; }
@@ -392,6 +434,75 @@
     return m;
   }
 
+  /* ---------- background removal ---------- */
+  /* Flood fills inward from the borders instead of thresholding brightness, so
+     white enclosed by the object (a mug's highlight, a donut hole) is kept. */
+  function removeBackground(data,w,h,tol){
+    var corners=[[0,0],[w-1,0],[0,h-1],[w-1,h-1]], br=0,bgc=0,bb=0,k;
+    for(k=0;k<4;k++){
+      var ci=(corners[k][1]*w+corners[k][0])*4;
+      br+=data[ci]; bgc+=data[ci+1]; bb+=data[ci+2];
+    }
+    br/=4; bgc/=4; bb/=4;
+    function dist(i){
+      var dr=data[i]-br, dg=data[i+1]-bgc, db=data[i+2]-bb;
+      return Math.sqrt(dr*dr+dg*dg+db*db);
+    }
+    var mask=new Uint8Array(w*h), stack=new Int32Array(w*h), sp=0;
+    function push(p){
+      if(!mask[p] && data[p*4+3]>0 && dist(p*4)<=tol){ mask[p]=1; stack[sp++]=p; }
+    }
+    var x,y,p;
+    for(x=0;x<w;x++){ push(x); push((h-1)*w+x); }
+    for(y=0;y<h;y++){ push(y*w); push(y*w+w-1); }
+    while(sp>0){
+      p=stack[--sp]; x=p%w; y=(p-x)/w;
+      if(x>0) push(p-1);
+      if(x<w-1) push(p+1);
+      if(y>0) push(p-w);
+      if(y<h-1) push(p+w);
+    }
+    var soft=Math.max(1,tol*0.9);
+    for(p=0;p<w*h;p++){
+      var i=p*4;
+      if(mask[p]){ data[i+3]=0; continue; }
+      x=p%w; y=(p-x)/w;
+      var touch=(x>0&&mask[p-1])||(x<w-1&&mask[p+1])||(y>0&&mask[p-w])||(y<h-1&&mask[p+w]);
+      if(touch){
+        var a=Math.max(0,Math.min(1,(dist(i)-tol)/soft));   // soften the cut edge
+        data[i+3]=Math.round(data[i+3]*a);
+      }
+    }
+  }
+
+  /* rebuild every derived bitmap for one object from its untouched original */
+  function applyBg(o,after){
+    var src=new Image();
+    src.onload=function(){
+      var c=document.createElement('canvas');
+      c.width=src.naturalWidth; c.height=src.naturalHeight;
+      var g=c.getContext('2d');
+      g.drawImage(src,0,0);
+      if(o.bgOn){
+        var id=g.getImageData(0,0,c.width,c.height);
+        removeBackground(id.data,c.width,c.height,o.bgTol);
+        g.putImageData(id,0,0);
+      }
+      var url=c.toDataURL('image/png');
+      var out=new Image();
+      out.onload=function(){
+        o.img=out; o.url=url;
+        o.alpha=alphaMap(out);
+        o.sil=makeSil(out,inkColor());
+        buildSplit(o);
+        renderList(); syncSel(); rebuildRuler(); checkSpin();
+        if(after) after();
+      };
+      out.src=url;
+    };
+    src.src=o.rawURL;
+  }
+
   /* ---------- alpha map: click testing + true swing radius ---------- */
   function alphaMap(img){
     var m=140;
@@ -415,7 +526,9 @@
         }
       }
     }
-    return {a:a,w:aw,h:ah,rNat:rNat};
+    var solid=0;
+    for(var q=0;q<a.length;q++) if(a[q]>24) solid++;
+    return {a:a,w:aw,h:ah,rNat:rNat,opaque:solid/(aw*ah)};
   }
 
   function dispW(o){ return o.img.naturalWidth*o.scale; }
@@ -825,9 +938,9 @@
         });
 
     var target=null;
-    var loopOpts=[S.loop,3,4,5,6].filter(function(v,i,arr){ return arr.indexOf(v)===i; });
+    var loopOpts=[S.loop,3,2,1.5,4,5,6].filter(function(v,i,arr){ return arr.indexOf(v)===i; });
     for(var li=0; li<loopOpts.length && !target; li++){
-      for(var tv=6; tv<=120; tv+=2){
+      for(var tv=6; tv<=300; tv+=2){
         var w=windowAt(tv,loopOpts[li]);
         var lo=Math.max(1,Math.round(3*FPS/30)), hi=Math.round(7*FPS/30);
         if(w>=lo && w<=hi){ target={tol:tv,loop:loopOpts[li],win:w}; break; }
@@ -972,6 +1085,9 @@
       document.getElementById('vScale').textContent='—';
       document.getElementById('vRot').textContent='—';
       document.getElementById('vMult').textContent='—';
+      var b0=document.getElementById('bgRemove'); b0.checked=false; b0.disabled=true;
+      document.getElementById('bgTol').disabled=true;
+      document.getElementById('bgHint').hidden=true;
       var c0=document.getElementById('splitOn'); c0.checked=false; c0.disabled=true;
       ['splitS','splitX','splitY'].forEach(function(id){ document.getElementById(id).disabled=true; });
       document.getElementById('splitPane').style.opacity='0.42';
@@ -986,6 +1102,13 @@
     Array.prototype.forEach.call(document.getElementById('omodeSeg').children,function(c){
       c.setAttribute('aria-pressed',String((c.dataset.omode||'')===(o.mode||'')));
     });
+
+    var bgc=document.getElementById('bgRemove');
+    bgc.disabled=false; bgc.checked=!!o.bgOn;
+    var bgt=document.getElementById('bgTol');
+    bgt.disabled=!o.bgOn; bgt.value=o.bgTol;
+    document.getElementById('vBgTol').textContent=o.bgTol;
+    document.getElementById('bgHint').hidden = !(!o.bgOn && o.alpha && o.alpha.opaque>0.985);
 
     var sp=o.split||{on:false,shape:'circle',fx:0,fy:0,fs:0.40};
     var chk=document.getElementById('splitOn');
@@ -1020,6 +1143,7 @@
             scale:340/Math.max(im.naturalWidth,im.naturalHeight),
             rot:0, mult:1, mode:'', cut:(n===0), win:0,
             split:{on:false,shape:'circle',fx:0,fy:0,fs:0.40},
+            rawURL:e.target.result, bgOn:false, bgTol:60,
             x:Math.max(120,Math.min(W-120,300+(n%3)*240)),
             y:Math.max(360,Math.min(H-200,640+Math.floor(n/3)*340)),
             alpha:alphaMap(im)
@@ -1109,6 +1233,22 @@
   seg('bgSeg','bg',refreshSils);
   seg('modeSeg','mode',function(){ syncTravel(); rebuildRuler(); });
   seg('styleSeg','style',checkSpin);
+
+  var bgTimer=null;
+  document.getElementById('bgRemove').addEventListener('change',function(){
+    var o=S.objs[S.sel]; if(!o){ this.checked=false; return; }
+    o.bgOn=this.checked;
+    document.getElementById('bgTol').disabled=!o.bgOn;
+    applyBg(o);
+  });
+  document.getElementById('bgTol').addEventListener('input',function(){
+    var v=parseFloat(this.value);
+    document.getElementById('vBgTol').textContent=v;
+    var o=S.objs[S.sel]; if(!o||!o.bgOn) return;
+    o.bgTol=v;
+    if(bgTimer) clearTimeout(bgTimer);
+    bgTimer=setTimeout(function(){ applyBg(o); },180);   // re-cut only once the slider settles
+  });
 
   document.getElementById('splitOn').addEventListener('change',function(){
     var o=S.objs[S.sel]; if(!o){ this.checked=false; return; }
@@ -1221,6 +1361,8 @@
      Frame timing is written explicitly into stts, so the output duration is
      exact rather than derived from wall-clock capture. */
 
+  /* MP4 muxer: one H.264 video track, optionally one AAC audio track. */
+
   function U32(n){ return new Uint8Array([(n>>>24)&255,(n>>>16)&255,(n>>>8)&255,n&255]); }
   function U16(n){ return new Uint8Array([(n>>8)&255,n&255]); }
   function STR(s){ var a=new Uint8Array(s.length); for(var i=0;i<s.length;i++) a[i]=s.charCodeAt(i)&255; return a; }
@@ -1232,84 +1374,264 @@
     for(i=0;i<list.length;i++){ out.set(list[i],off); off+=list[i].length; }
     return out;
   }
-  function box(type, parts){
-    var body=cat(parts);
-    return cat([U32(body.length+8), STR(type), body]);
+  function box(type,parts){ var b=cat(parts); return cat([U32(b.length+8),STR(type),b]); }
+  function fullBox(type,version,flags,parts){
+    return box(type,[new Uint8Array([version,(flags>>16)&255,(flags>>8)&255,flags&255])].concat(parts));
   }
-  function fullBox(type, version, flags, parts){
-    return box(type, [new Uint8Array([version,(flags>>16)&255,(flags>>8)&255,flags&255])].concat(parts));
+  var MATRIX=cat([U32(0x00010000),U32(0),U32(0),U32(0),U32(0x00010000),U32(0),U32(0),U32(0),U32(0x40000000)]);
+
+  /* MPEG-4 descriptors, used by esds to carry the AAC config */
+  function descr(tag,payload){
+    var len=payload.length;
+    if(len<128) return cat([new Uint8Array([tag,len]),payload]);
+    return cat([new Uint8Array([tag,0x80|((len>>21)&127),0x80|((len>>14)&127),0x80|((len>>7)&127),len&127]),payload]);
+  }
+  function esdsBox(asc,bitrate){
+    var dsi=descr(0x05,asc);
+    var dcd=descr(0x04,cat([
+      new Uint8Array([0x40,0x15]),      // MPEG-4 audio, audio stream
+      new Uint8Array([0,0,0]),          // bufferSizeDB
+      U32(bitrate),U32(bitrate),
+      dsi
+    ]));
+    var sl=descr(0x06,new Uint8Array([0x02]));
+    var es=descr(0x03,cat([U16(1),new Uint8Array([0]),dcd,sl]));
+    return fullBox('esds',0,0,[es]);
   }
 
-  var MATRIX = cat([U32(0x00010000),U32(0),U32(0),U32(0),U32(0x00010000),U32(0),U32(0),U32(0),U32(0x40000000)]);
+  function sampleTables(sizes,chunkOffset,delta,extraStss){
+    var stts=fullBox('stts',0,0,[U32(1),U32(sizes.length),U32(delta)]);
+    var stsc=fullBox('stsc',0,0,[U32(1),U32(1),U32(sizes.length),U32(1)]);
+    var szp=[U32(0),U32(sizes.length)];
+    for(var i=0;i<sizes.length;i++) szp.push(U32(sizes[i]));
+    var stsz=fullBox('stsz',0,0,szp);
+    var stco=fullBox('stco',0,0,[U32(1),U32(chunkOffset)]);
+    return {stts:stts,stsc:stsc,stsz:stsz,stco:stco};
+  }
 
   function buildMP4(opts){
-    var sizes = opts.sizes;          // byte length of each sample
-    var data  = opts.data;           // concatenated samples (AVCC, length-prefixed)
-    var keys  = opts.keys;           // indices of sync samples
-    var w = opts.width, h = opts.height;
-    var avcC = opts.avcC;            // decoder description from VideoEncoder
-    var fps = opts.fps;
+    var TS=90000;
+    var vSizes=opts.sizes, vDelta=Math.round(TS/opts.fps), nV=vSizes.length;
+    var vDur=nV*vDelta;
+    var audio=opts.audio||null;
 
-    var TS = 90000;
-    var delta = Math.round(TS/fps);
-    var n = sizes.length;
-    var duration = n*delta;
+    var aDur90=0, aFrames=0;
+    if(audio){
+      aFrames=audio.sizes.length;
+      aDur90=Math.round(aFrames*audio.frameSize/audio.sampleRate*TS);
+    }
+    var movieDur=Math.max(vDur,aDur90);
 
-    var ftyp = box('ftyp',[STR('isom'),U32(0x200),STR('isom'),STR('iso2'),STR('avc1'),STR('mp41')]);
-    var mdat = cat([U32(data.length+8), STR('mdat'), data]);
-    var sampleOffset = ftyp.length + 8;   // first sample byte, for stco
+    var ftyp=box('ftyp',[STR('isom'),U32(0x200),STR('isom'),STR('iso2'),STR('avc1'),STR('mp41')]);
+    var mediaBytes = audio ? cat([opts.data,audio.data]) : opts.data;
+    var mdat=cat([U32(mediaBytes.length+8),STR('mdat'),mediaBytes]);
+    var vOffset=ftyp.length+8;
+    var aOffset=vOffset+opts.data.length;
 
-    var mvhd = fullBox('mvhd',0,0,[
-      U32(0),U32(0),U32(TS),U32(duration),
+    var mvhd=fullBox('mvhd',0,0,[
+      U32(0),U32(0),U32(TS),U32(movieDur),
       U32(0x00010000),U16(0x0100),ZERO(2),ZERO(8),
-      MATRIX, ZERO(24), U32(2)
+      MATRIX,ZERO(24),U32(audio?3:2)
     ]);
 
-    var tkhd = fullBox('tkhd',0,7,[
-      U32(0),U32(0),U32(1),ZERO(4),U32(duration),
+    /* ---- video track ---- */
+    var vtkhd=fullBox('tkhd',0,7,[
+      U32(0),U32(0),U32(1),ZERO(4),U32(vDur),
       ZERO(8),U16(0),U16(0),U16(0),ZERO(2),
-      MATRIX, U32(w*65536), U32(h*65536)
+      MATRIX,U32(opts.width*65536),U32(opts.height*65536)
     ]);
+    var vmdhd=fullBox('mdhd',0,0,[U32(0),U32(0),U32(TS),U32(vDur),U16(0x55C4),ZERO(2)]);
+    var vhdlr=fullBox('hdlr',0,0,[U32(0),STR('vide'),ZERO(12),STR('VideoHandler'),ZERO(1)]);
+    var vmhd=fullBox('vmhd',0,1,[ZERO(8)]);
+    var dinf=box('dinf',[fullBox('dref',0,0,[U32(1),fullBox('url ',0,1,[])])]);
 
-    var mdhd = fullBox('mdhd',0,0,[U32(0),U32(0),U32(TS),U32(duration),U16(0x55C4),ZERO(2)]);
-    var hdlr = fullBox('hdlr',0,0,[U32(0),STR('vide'),ZERO(12),STR('VideoHandler'),ZERO(1)]);
-    var vmhd = fullBox('vmhd',0,1,[ZERO(8)]);
-    var dref = fullBox('dref',0,0,[U32(1), fullBox('url ',0,1,[])]);
-    var dinf = box('dinf',[dref]);
-
-    var avcCBox = box('avcC',[avcC]);
-    var avc1 = box('avc1',[
-      ZERO(6), U16(1),
-      ZERO(2), ZERO(2), ZERO(12),
-      U16(w), U16(h),
-      U32(0x00480000), U32(0x00480000),
-      ZERO(4), U16(1), ZERO(32),
-      U16(0x0018), new Uint8Array([255,255]),
-      avcCBox
+    var avc1=box('avc1',[
+      ZERO(6),U16(1),ZERO(2),ZERO(2),ZERO(12),
+      U16(opts.width),U16(opts.height),
+      U32(0x00480000),U32(0x00480000),
+      ZERO(4),U16(1),ZERO(32),U16(0x0018),new Uint8Array([255,255]),
+      box('avcC',[opts.avcC])
     ]);
-    var stsd = fullBox('stsd',0,0,[U32(1), avc1]);
-
-    var stts = fullBox('stts',0,0,[U32(1), U32(n), U32(delta)]);
-
+    var vstsd=fullBox('stsd',0,0,[U32(1),avc1]);
+    var vt=sampleTables(vSizes,vOffset,vDelta);
+    var keys=opts.keys&&opts.keys.length?opts.keys:[0];
     var stssParts=[U32(keys.length)];
     for(var k=0;k<keys.length;k++) stssParts.push(U32(keys[k]+1));
-    var stss = fullBox('stss',0,0,stssParts);
+    var stss=fullBox('stss',0,0,stssParts);
 
-    var stsc = fullBox('stsc',0,0,[U32(1), U32(1), U32(n), U32(1)]);
+    var vstbl=box('stbl',[vstsd,vt.stts,stss,vt.stsc,vt.stsz,vt.stco]);
+    var vtrak=box('trak',[vtkhd,box('mdia',[vmdhd,vhdlr,box('minf',[vmhd,dinf,vstbl])])]);
 
-    var stszParts=[U32(0),U32(n)];
-    for(var s=0;s<n;s++) stszParts.push(U32(sizes[s]));
-    var stsz = fullBox('stsz',0,0,stszParts);
+    var traks=[vtrak];
 
-    var stco = fullBox('stco',0,0,[U32(1), U32(sampleOffset)]);
+    /* ---- audio track ---- */
+    if(audio){
+      var atkhd=fullBox('tkhd',0,7,[
+        U32(0),U32(0),U32(2),ZERO(4),U32(aDur90),
+        ZERO(8),U16(0),U16(1),U16(0x0100),ZERO(2),
+        MATRIX,U32(0),U32(0)
+      ]);
+      var amdhd=fullBox('mdhd',0,0,[U32(0),U32(0),U32(audio.sampleRate),U32(aFrames*audio.frameSize),U16(0x55C4),ZERO(2)]);
+      var ahdlr=fullBox('hdlr',0,0,[U32(0),STR('soun'),ZERO(12),STR('SoundHandler'),ZERO(1)]);
+      var smhd=fullBox('smhd',0,0,[U16(0),ZERO(2)]);
 
-    var stbl = box('stbl',[stsd,stts,stss,stsc,stsz,stco]);
-    var minf = box('minf',[vmhd,dinf,stbl]);
-    var mdia = box('mdia',[mdhd,hdlr,minf]);
-    var trak = box('trak',[tkhd,mdia]);
-    var moov = box('moov',[mvhd,trak]);
+      var mp4a=box('mp4a',[
+        ZERO(6),U16(1),
+        U16(0),U16(0),ZERO(4),
+        U16(audio.channels),U16(16),
+        U16(0),U16(0),
+        U32(audio.sampleRate*65536),
+        esdsBox(audio.asc,audio.bitrate||128000)
+      ]);
+      var astsd=fullBox('stsd',0,0,[U32(1),mp4a]);
+      var at=sampleTables(audio.sizes,aOffset,audio.frameSize);
+      var astbl=box('stbl',[astsd,at.stts,at.stsc,at.stsz,at.stco]);
+      traks.push(box('trak',[atkhd,box('mdia',[amdhd,ahdlr,box('minf',[smhd,dinf,astbl])])]));
+    }
 
-    return cat([ftyp, mdat, moov]);
+    var moov=box('moov',[mvhd].concat(traks));
+    return cat([ftyp,mdat,moov]);
+  }
+
+  /* ---------- voice-over ---------- */
+  var vgStatus=document.getElementById('vgStatus');
+  var vgPlay=document.getElementById('vgPlay');
+  var vgURL=null;
+
+  function vgSay(msg,bad){
+    vgStatus.textContent=msg||'';
+    vgStatus.className='note'+(bad?' warn':'');
+  }
+
+  /* AAC config, in case the encoder does not hand one back */
+  function makeASC(sr,ch){
+    var rates=[96000,88200,64000,48000,44100,32000,24000,22050,16000,12000,11025,8000,7350];
+    var idx=rates.indexOf(sr); if(idx<0) idx=4;
+    var v=(2<<11)|(idx<<7)|(ch<<3);
+    return new Uint8Array([(v>>8)&255,v&255]);
+  }
+
+  async function loadAudioBytes(bytes,name){
+    var AC=window.AudioContext||window.webkitAudioContext;
+    if(!AC) throw new Error('This browser cannot decode audio.');
+    var ac=new AC();
+    var buf=await ac.decodeAudioData(bytes.slice(0));
+    try{ ac.close(); }catch(e){}
+    S.audio={buffer:buf,name:name};
+    if(vgURL) URL.revokeObjectURL(vgURL);
+    vgURL=URL.createObjectURL(new Blob([bytes]));
+    vgPlay.src=vgURL; vgPlay.hidden=false;
+    document.getElementById('vgFit').hidden=false;
+    document.getElementById('vgClear').hidden=false;
+    document.getElementById('vgDur').textContent=buf.duration.toFixed(1)+'s';
+    var vid=frameCount()*S.reps/FPS;
+    vgSay(name+' loaded · voice '+buf.duration.toFixed(1)+'s vs video '+vid.toFixed(1)+'s'+
+          (buf.duration>vid+0.2?' — the tail will be cut off unless you lengthen the video.':''),
+          buf.duration>vid+0.2);
+  }
+
+  document.getElementById('vgGen').addEventListener('click',async function(){
+    var key=document.getElementById('vgKey').value.trim();
+    var text=document.getElementById('vgText').value.trim();
+    if(!text){ vgSay('Type the line you want spoken first.',true); return; }
+    if(!key){ vgSay('An OpenAI API key is needed to generate speech.',true); return; }
+    var btn=this; btn.disabled=true; vgSay('Generating…');
+    try{
+      var res=await fetch('https://api.openai.com/v1/audio/speech',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+        body:JSON.stringify({
+          model:document.getElementById('vgModel').value.trim()||'gpt-4o-mini-tts',
+          voice:document.getElementById('vgVoice').value,
+          input:text,
+          response_format:'wav'
+        })
+      });
+      if(!res.ok){
+        var t=await res.text();
+        throw new Error('OpenAI returned '+res.status+'. '+t.slice(0,180));
+      }
+      await loadAudioBytes(await res.arrayBuffer(),'Generated voice');
+    }catch(err){
+      var m=String(err.message||err);
+      if(/Failed to fetch|NetworkError/i.test(m)){
+        m='The request was blocked. Opening this file straight from disk (file://) often breaks API calls — serve it over http, or use the audio-file option instead.';
+      }
+      vgSay(m,true);
+    }
+    btn.disabled=false;
+  });
+
+  document.getElementById('vgPick').addEventListener('click',function(){ document.getElementById('vgFile').click(); });
+  document.getElementById('vgFile').addEventListener('change',async function(){
+    var f=this.files[0]; this.value='';
+    if(!f) return;
+    vgSay('Reading '+f.name+'…');
+    try{ await loadAudioBytes(await f.arrayBuffer(),f.name); }
+    catch(e){ vgSay('Could not decode that audio file.',true); }
+  });
+
+  document.getElementById('vgFit').addEventListener('click',function(){
+    if(!S.audio) return;
+    var need=Math.ceil(S.audio.buffer.duration/S.loop);
+    S.reps=Math.max(1,Math.min(8,need));
+    document.getElementById('reps').value=S.reps;
+    document.getElementById('vReps').textContent=S.reps;
+    var vid=frameCount()*S.reps/FPS;
+    vgSay('Video set to '+S.reps+' loops ('+vid.toFixed(1)+'s) for a '+S.audio.buffer.duration.toFixed(1)+'s voice.'+
+          (need>8?' Longer than 8 loops is not possible — raise the loop length too.':''), need>8);
+  });
+
+  document.getElementById('vgClear').addEventListener('click',function(){
+    S.audio=null;
+    if(vgURL){ URL.revokeObjectURL(vgURL); vgURL=null; }
+    vgPlay.hidden=true; vgPlay.src='';
+    this.hidden=true; document.getElementById('vgFit').hidden=true;
+    document.getElementById('vgDur').textContent='';
+    vgSay('');
+  });
+
+  /* PCM -> AAC, trimmed or padded to exactly the video length */
+  async function encodeAudioTrack(buf,targetSec){
+    if(!window.AudioEncoder||!window.AudioData) return null;
+    var sr=buf.sampleRate, ch=Math.min(2,buf.numberOfChannels);
+    var cfg={codec:'mp4a.40.2',sampleRate:sr,numberOfChannels:ch,bitrate:128000};
+    if(AudioEncoder.isConfigSupported){
+      var sup=await AudioEncoder.isConfigSupported(cfg);
+      if(!sup||!sup.supported) return null;
+    }
+    var need=Math.round(targetSec*sr);
+    var planes=[],c;
+    for(c=0;c<ch;c++){
+      var srcCh=buf.getChannelData(c), arr=new Float32Array(need);
+      arr.set(srcCh.subarray(0,Math.min(srcCh.length,need)));
+      planes.push(arr);
+    }
+    var sizes=[],blobs=[],asc=null;
+    var enc=new AudioEncoder({
+      output:function(chunk,meta){
+        if(meta&&meta.decoderConfig&&meta.decoderConfig.description&&!asc)
+          asc=new Uint8Array(meta.decoderConfig.description);
+        var b=new Uint8Array(chunk.byteLength); chunk.copyTo(b);
+        sizes.push(b.length); blobs.push(b);
+      },
+      error:function(e){ console.error('audio encoder:',e); }
+    });
+    enc.configure(cfg);
+    var block=1024;
+    for(var off=0;off<need;off+=block){
+      var len=Math.min(block,need-off);
+      var data=new Float32Array(len*ch);
+      for(c=0;c<ch;c++) data.set(planes[c].subarray(off,off+len),c*len);
+      var ad=new AudioData({format:'f32-planar',sampleRate:sr,numberOfFrames:len,
+        numberOfChannels:ch,timestamp:Math.round(off/sr*1000000),data:data});
+      enc.encode(ad); ad.close();
+      if(enc.encodeQueueSize>8) await new Promise(function(r){ setTimeout(r,0); });
+    }
+    await enc.flush(); enc.close();
+    if(!sizes.length) return null;
+    return {sizes:sizes,data:cat(blobs),sampleRate:sr,channels:ch,
+            asc:asc||makeASC(sr,ch),frameSize:1024,bitrate:128000};
   }
 
   /* ---------- export ---------- */
@@ -1394,9 +1716,16 @@
     if(!sizes.length) return false;
     if(!desc){ return false; }
 
+    var audioTrack=null;
+    if(S.audio&&S.audio.buffer&&!cancelExport){
+      recTime.textContent='voice…';
+      try{ audioTrack=await encodeAudioTrack(S.audio.buffer,total/FPS); }
+      catch(e){ console.error(e); }
+      if(!audioTrack) vgSay('The voice could not be encoded, so the file was saved without it.',true);
+    }
     var data=cat(blobs);
     var mp4=buildMP4({sizes:sizes,data:data,keys:keys.length?keys:[0],
-                      width:W,height:H,avcC:desc,fps:FPS});
+                      width:W,height:H,avcC:desc,fps:FPS,audio:audioTrack});
     save(new Blob([mp4],{type:'video/mp4'}),'silhouette-pause-'+cutList().length+'piece.mp4');
     return true;
   }
