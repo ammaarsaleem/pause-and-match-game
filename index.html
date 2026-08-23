@@ -265,6 +265,21 @@
         <label>Resting angle <b id="vRot">—</b></label>
         <input type="range" id="orot" min="-180" max="180" step="1" value="0" disabled>
       </div>
+      <p class="sub">Arrange</p>
+      <div class="chips" id="layoutRow">
+        <button type="button" data-layout="center">Center</button>
+        <button type="button" data-layout="across">Space across</button>
+        <button type="button" data-layout="down">Space down</button>
+        <button type="button" data-layout="row">Same row</button>
+        <button type="button" data-layout="col">Same column</button>
+        <button type="button" data-layout="left">Align left</button>
+        <button type="button" data-layout="right">Align right</button>
+        <button type="button" data-layout="top">Align top</button>
+        <button type="button" data-layout="bottom">Align bottom</button>
+        <button type="button" data-layout="size">Same size</button>
+        <button type="button" data-layout="upright">Upright</button>
+      </div>
+      <p class="note">Applies to ticked objects, or every object if none are ticked.</p>
 
       <p class="sub">Cut a piece out of it</p>
       <label class="check"><input type="checkbox" id="splitOn" disabled> Only part of this object moves</label>
@@ -374,6 +389,13 @@
       <div class="row" id="rowRunGap">
         <label>Object spacing <b id="vRunGap">420 px</b></label>
         <input type="range" id="runGap" min="160" max="1200" step="20" value="420">
+      </div>
+      <div class="row" id="rowSceneDir">
+        <label style="margin-bottom:6px">Travel way</label>
+        <div class="seg two" id="sceneDirSeg">
+          <button type="button" data-sdir="1" aria-pressed="true">Right</button>
+          <button type="button" data-sdir="-1" aria-pressed="false">Left</button>
+        </div>
       </div>
       <div class="row" id="rowSeed">
         <label>Seed <b id="vSeed">1</b></label>
@@ -526,7 +548,7 @@
     rampIntensity:0, fakeStopStrength:0.65, fakeStopPosition:0.38,
     blurAmount:0.45, blurSamples:5, formation:'line',
     wavePhase:0.7, conveyorSpacing:0, teleportFlash:0.06,
-    targetIndex:0, centerSpacing:420
+    targetIndex:0, centerSpacing:420, sceneDir:1
   };
 
   var ANIMATION_MODES=[
@@ -731,8 +753,14 @@
   /* ---------- motion ---------- */
   function modeOf(o){ return o.mode || S.mode; }
   function axisOf(o){ return o.sweepAxis || S.sweepAxis; }
-  function cyclesOf(o){ return S.cycles*Math.max(1,Math.abs(o.mult||1)); }
-  function dirOf(o){ return (o.mult||1)<0 ? -1 : 1; }
+  function cyclesOf(o){
+    if(modeOf(o)==='centerRun') return Math.max(1, S.cycles);
+    return S.cycles*Math.max(1,Math.abs(o.mult||1));
+  }
+  function dirOf(o){
+    if(modeOf(o)==='centerRun') return (S.sceneDir||1)<0 ? -1 : 1;
+    return (o.mult||1)<0 ? -1 : 1;
+  }
   /* how many times per loop a piece is back home — a swing/bounce passes through
      on the way out and again on the way back, so it counts double. Reverse
      remapping also doubles landings. */
@@ -1520,7 +1548,7 @@
     // ticked rows drive the panel even when no single row is highlighted
     var o=S.objs[S.sel]||targets()[0];
     var sc=document.getElementById('oscale'), rt=document.getElementById('orot'), ml=document.getElementById('omult');
-    sc.disabled=!o; rt.disabled=!o; ml.disabled=!o||!o.cut;
+    sc.disabled=!o; rt.disabled=!o; ml.disabled=!o||!o.cut||modeOf(o)==='centerRun';
     document.getElementById('cutPane').style.opacity=(o&&o.cut)?'1':'0.42';
     if(!o){
       document.getElementById('vScale').textContent='—';
@@ -1539,7 +1567,7 @@
     ml.value=o.mult;
     document.getElementById('vScale').textContent=Math.round(longSide(o))+' px';
     document.getElementById('vRot').textContent=Math.round(o.rot*180/Math.PI)+'°';
-    document.getElementById('vMult').textContent=o.cut?((o.mult<0?'reverse ':'')+Math.abs(o.mult)+'×'):'not cut';
+    document.getElementById('vMult').textContent=!o.cut?'not cut':(modeOf(o)==='centerRun'?((S.sceneDir||1)<0?'scene left':'scene right'):((o.mult<0?'reverse ':'')+Math.abs(o.mult)+'×'));
     Array.prototype.forEach.call(document.getElementById('omodeSeg').children,function(c){
       c.setAttribute('aria-pressed',String((c.dataset.omode||'')===(o.mode||'')));
     });
@@ -1840,6 +1868,15 @@
     S.objs.forEach(function(o){ o.pick=false; });
     renderList(); syncSel();
   });
+  document.getElementById('layoutRow').addEventListener('click',function(e){
+    var b=e.target.closest('button'); if(!b) return;
+    applyLayout(b.dataset.layout);
+  });
+  document.getElementById('sceneDirSeg').addEventListener('click',function(e){
+    var b=e.target.closest('button'); if(!b) return;
+    S.sceneDir=parseInt(b.dataset.sdir,10)||1;
+    paintModeUI(); rebuildRuler();
+  });
 
   var bgTimer=null;
   document.getElementById('bgRemove').addEventListener('change',function(){
@@ -1946,6 +1983,7 @@
     row('rowWavePhase', !!c.phase);
     row('rowSpacing', !!c.spacing);
     row('rowRunGap', !!c.runGap);
+    row('rowSceneDir', !!c.runGap);
     row('rowSeed', !!c.seed);
     row('rowRamp', !!c.ramp || S.phaseMod==='speedRamp' || S.phaseMod==='fakeStop');
     row('rowFakeStop', !!c.fakeStop);
@@ -1959,7 +1997,7 @@
     paintTargetUI();
     var note=document.getElementById('modeNote');
     if(S.mode==='spotlight') note.innerHTML='<b>One at a Time</b> shows a single cut object, then the next. Pause while the chosen object is on screen.';
-    else if(S.mode==='centerRun') note.innerHTML='<b>Center Run</b> spaces every cut object equally and scrolls them across. Raise <b>Object spacing</b> until they no longer overlap. Pause when the chosen object hits the centre line.';
+    else if(S.mode==='centerRun') note.innerHTML='<b>Center Run</b> moves every cut object at the same scene speed and direction. Raise <b>Object spacing</b> until they no longer overlap. Pause when the chosen object hits the centre line.';
     else note.textContent='Cycles stay whole numbers so the clip loops seamlessly. Difficulty remappers change timing only — the solved pose is still the resting layout.';
     var selO=S.objs[S.sel]||targets()[0];
     document.getElementById('rowOSweep').classList.toggle('off', !(selO && usesAxis(modeOf(selO))));
@@ -1975,6 +2013,9 @@
     });
     Array.prototype.forEach.call(document.getElementById('formationSeg').children,function(b){
       b.setAttribute('aria-pressed', String(b.dataset.form===S.formation));
+    });
+    Array.prototype.forEach.call(document.getElementById('sceneDirSeg').children,function(b){
+      b.setAttribute('aria-pressed', String(parseInt(b.dataset.sdir,10)===(S.sceneDir||1)));
     });
   }
 
@@ -2009,8 +2050,11 @@
   function setSceneMode(id){
     S.mode=id;
     motionCache.key=null;
-    if(id==='centerRun' && cutList().length>1) spaceEqually();
-    syncAnimControls(); rebuildRuler();
+    if(id==='centerRun'){
+      cutList().forEach(function(o){ o.mult=1; o.multTouched=true; });
+      if(cutList().length>1) spaceEqually();
+    }
+    syncAnimControls(); renderList(); syncSel(); rebuildRuler();
   }
 
   function setPhaseMod(id){
@@ -2121,15 +2165,85 @@
     });
   }
 
+  function layoutSet(){
+    var p=pickList();
+    return p.length ? p : S.objs.slice();
+  }
+
   function spaceEqually(){
-    var cuts=cutList();
-    if(!cuts.length) return;
-    var n=cuts.length, margin=160, span=W-margin*2;
-    cuts.forEach(function(o,i){
-      o.x = n===1 ? W/2 : margin + span*i/Math.max(1,n-1);
-      o.y = H*0.52;
+    spaceAcross(cutList());
+  }
+
+  function spaceAcross(set){
+    if(!set.length) return;
+    var n=set.length, margin=160, span=W-margin*2;
+    set.forEach(function(o,i){
+      o.x = n===1 ? W/2 : clampX(margin + span*i/Math.max(1,n-1));
+      o.y = clampY(H*0.52);
     });
     motionCache.key=null;
+  }
+
+  function applyLayout(id){
+    var set=layoutSet();
+    if(!set.length) return;
+    var n=set.length;
+    var cx=W/2, cy=H*0.52;
+    var xs=set.map(function(o){ return o.x; });
+    var ys=set.map(function(o){ return o.y; });
+    var minX=Math.min.apply(null,xs), maxX=Math.max.apply(null,xs);
+    var minY=Math.min.apply(null,ys), maxY=Math.max.apply(null,ys);
+    var midX=xs.reduce(function(s,v){ return s+v; },0)/n;
+    var midY=ys.reduce(function(s,v){ return s+v; },0)/n;
+    switch(id){
+      case 'center':
+        set.forEach(function(o){ o.x=cx; o.y=cy; });
+        break;
+      case 'across':
+        spaceAcross(set);
+        break;
+      case 'down': {
+        var top=360, bot=H-280, span=bot-top;
+        set.forEach(function(o,i){
+          o.x=clampX(cx);
+          o.y=n===1 ? cy : clampY(top + span*i/Math.max(1,n-1));
+        });
+        break;
+      }
+      case 'row':
+        set.forEach(function(o){ o.y=clampY(midY); });
+        break;
+      case 'col':
+        set.forEach(function(o){ o.x=clampX(midX); });
+        break;
+      case 'left':
+        set.forEach(function(o){ o.x=clampX(minX); });
+        break;
+      case 'right':
+        set.forEach(function(o){ o.x=clampX(maxX); });
+        break;
+      case 'top':
+        set.forEach(function(o){ o.y=clampY(minY); });
+        break;
+      case 'bottom':
+        set.forEach(function(o){ o.y=clampY(maxY); });
+        break;
+      case 'size': {
+        var ref=set[0];
+        var long=longSide(ref);
+        set.forEach(function(o){
+          o.scale=long/Math.max(o.img.naturalWidth, o.img.naturalHeight);
+        });
+        break;
+      }
+      case 'upright':
+        set.forEach(function(o){ o.rot=0; });
+        break;
+      default:
+        throw new Error('unknown layout '+id);
+    }
+    motionCache.key=null;
+    renderList(); syncSel(); rebuildRuler();
   }
 
   function applySoccer(id){
@@ -2151,6 +2265,9 @@
     if(p.formation) S.formation=p.formation;
     if(p.fakeStopStrength!==undefined) S.fakeStopStrength=p.fakeStopStrength;
     if(p.fakeStopPosition!==undefined) S.fakeStopPosition=p.fakeStopPosition;
+    if(S.mode==='centerRun'){
+      cutList().forEach(function(o){ o.mult=1; o.multTouched=true; });
+    }
     if(p.layout) spaceEqually();
     document.getElementById('loop').value=S.loop;
     document.getElementById('vLoop').textContent=S.loop.toFixed(1)+' s';
