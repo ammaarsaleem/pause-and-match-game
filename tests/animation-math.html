@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Pause & Match — animation math tests</title>
+  <style>
+    body{font:14px/1.5 system-ui,sans-serif;margin:24px;background:#111;color:#eee}
+    h1{font-size:18px}
+    #out{white-space:pre-wrap;font-family:ui-monospace,Menlo,monospace}
+    .ok{color:#3ecf8e} .bad{color:#ff5d7a}
+  </style>
+</head>
+<body>
+  <h1>Animation math tests</h1>
+  <pre id="out">Running…</pre>
+  <script src="../animation-math.js"></script>
+  <script src="animation-math-tests.js"></script>
+  <script>
+    var res = runAnimationMathTests();
+    var el = document.getElementById('out');
+    if (!res.fails.length) el.className = 'ok';
+    else el.className = 'bad';
+    el.textContent = res.passes + ' passed, ' + res.fails.length + ' failed\n' +
+      (res.fails.length ? res.fails.join('\n') : 'All checks passed.');
+  </script>
+</body>
+</html>

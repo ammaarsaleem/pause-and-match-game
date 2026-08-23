@@ -37,6 +37,14 @@
   .drop span{display:block;color:var(--muted);font-size:11.5px;margin-top:6px;line-height:1.5}
 
   .objs{margin-top:12px;display:flex;flex-direction:column;gap:5px}
+  .pickbar{display:flex;align-items:center;gap:8px;margin-top:9px;font-size:11.5px;color:var(--muted)}
+  .pickbar span{flex:1}
+  .pickbar button{background:transparent;border:1px solid var(--line);border-radius:3px;color:var(--muted);
+    cursor:pointer;padding:7px 12px;font-family:var(--display);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .pickbar button:hover{color:var(--text);border-color:var(--lock)}
+  .obj .pick{accent-color:var(--lock);width:20px;height:20px;flex:0 0 auto;cursor:pointer;margin:0}
+  .obj.picked{background:#1d2b45;border-color:#2f6e6a}
+  @media (pointer:coarse){ .obj .pick{width:26px;height:26px} }
   .obj{display:flex;align-items:center;gap:7px;padding:6px 8px;border:1px solid var(--line);border-radius:3px;background:var(--panel2);cursor:pointer}
   .obj:hover{border-color:#37436e}
   .obj.sel{border-color:var(--hot)}
@@ -54,6 +62,7 @@
 
   .seg{display:grid;gap:5px;grid-template-columns:repeat(3,1fr)}
   .seg.two{grid-template-columns:repeat(2,1fr)}
+  .seg.four{grid-template-columns:repeat(4,1fr)}
   .seg button{background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:9px 3px;cursor:pointer;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;font-family:var(--display);font-weight:500;color:var(--muted);transition:.15s}
   .seg button:hover{color:var(--text);border-color:#37436e}
   .seg button[aria-pressed="true"]{background:var(--hot);border-color:var(--hot);color:#fff}
@@ -61,12 +70,31 @@
 
   .row{margin-top:14px}
   .row.off{opacity:.38;pointer-events:none}
-  .row label{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;color:var(--muted);margin-bottom:4px}
+  .row label{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;color:var(--muted);margin-bottom:2px}
   .row label b{font-family:var(--mono);font-weight:700;color:var(--text);font-size:12px}
-  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:2px;background:var(--line);border-radius:2px;outline:none;margin:6px 0}
-  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--hot);cursor:pointer;border:2px solid var(--panel)}
-  input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--hot);cursor:pointer;border:2px solid var(--panel)}
-  input[type=range]:focus-visible{outline:2px solid var(--lock);outline-offset:4px}
+  /* the whole control is the touch target; the visible bar is the track pseudo-element */
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:34px;background:transparent;outline:none;margin:0;cursor:pointer}
+  input[type=range]::-webkit-slider-runnable-track{height:4px;background:var(--line);border-radius:2px}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:var(--hot);cursor:pointer;border:3px solid var(--panel);margin-top:-9px;box-shadow:0 1px 4px rgba(0,0,0,.4)}
+  input[type=range]::-moz-range-track{height:4px;background:var(--line);border-radius:2px}
+  input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:var(--hot);cursor:pointer;border:3px solid var(--panel);box-shadow:0 1px 4px rgba(0,0,0,.4)}
+  input[type=range]:focus-visible{outline:2px solid var(--lock);outline-offset:2px}
+  input[type=range]:disabled::-webkit-slider-thumb{background:var(--line)}
+  input[type=range]:disabled::-moz-range-thumb{background:var(--line)}
+  @media (pointer:coarse){
+    input[type=range]{height:46px}
+    input[type=range]::-webkit-slider-thumb{width:30px;height:30px;margin-top:-13px}
+    input[type=range]::-moz-range-thumb{width:30px;height:30px}
+    .seg button{padding:14px 4px;font-size:12px}
+    .tbtn{width:46px;height:44px;font-size:14px}
+    .tbtn.play{width:56px}
+    .check input{width:24px;height:24px}
+    .obj{padding:9px 8px}
+    .obj .cut{padding:9px 12px;font-size:11px}
+    .obj .del{font-size:22px;padding:4px 8px}
+    .go{padding:16px}
+    .ghost{padding:14px}
+  }
   input[type=text]{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:9px 10px;font-size:13px}
   input[type=text]:focus,input[type=password]:focus,textarea:focus,select:focus{outline:none;border-color:var(--hot)}
   input[type=password],textarea,select{
@@ -78,8 +106,16 @@
   .vgrow{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}
   #vgDur{color:var(--lock)}
   .check{display:flex;align-items:center;gap:9px;margin-top:11px;color:var(--muted);font-size:12.5px;cursor:pointer}
-  .check input{accent-color:var(--hot);width:15px;height:15px}
+  .check input{accent-color:var(--hot);width:20px;height:20px;flex:0 0 auto}
   .sub{font-family:var(--display);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin:16px 0 9px;padding-top:14px;border-top:1px solid var(--line)}
+  .cat{font-family:var(--display);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin:11px 0 6px}
+  .cat:first-child{margin-top:0}
+  .chips{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0 4px}
+  .chips button{background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:7px 8px;cursor:pointer;font-size:10px;letter-spacing:.08em;text-transform:uppercase;font-family:var(--display);font-weight:500;color:var(--muted)}
+  .chips button:hover{color:var(--text);border-color:#37436e}
+  .chips button[aria-pressed="true"]{background:var(--hot);border-color:var(--hot);color:#fff}
+  #modeCats .seg{margin-top:0}
+  #omodeSeg{grid-template-columns:repeat(3,1fr)}
 
   .go{width:100%;padding:13px;border:0;border-radius:3px;background:var(--hot);color:#fff;font-family:var(--display);font-size:13px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;cursor:pointer}
   .go:hover{background:#ff2a70}
@@ -94,6 +130,13 @@
   .note.warn[hidden]{display:none}
 
   .stage{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;overflow:auto;min-width:0}
+  .ctools{display:flex;align-items:center;gap:10px;width:min(580px,100%)}
+  .ctools button{background:var(--panel2);border:1px solid var(--line);border-radius:3px;color:var(--muted);
+    cursor:pointer;padding:9px 14px;font-family:var(--display);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .ctools button:hover{color:var(--text);border-color:#37436e}
+  .ctools button.on{background:var(--lock);border-color:var(--lock);color:#052622}
+  .ctools .tip{flex:1;text-align:right;font-size:11px;color:var(--muted)}
+  @media (pointer:coarse){ .ctools button{padding:13px 16px;font-size:12px} }
   .screen{position:relative;flex:0 0 auto}
   canvas#view{display:block;height:min(64vh,640px);width:auto;aspect-ratio:9/16;background:#fff;border:1px solid var(--line);border-radius:3px;cursor:grab;touch-action:none}
   canvas#view.grabbing{cursor:grabbing}
@@ -116,12 +159,12 @@
   .tbtn{
     background:var(--panel2);border:1px solid var(--line);border-radius:3px;
     color:var(--muted);cursor:pointer;padding:0;
-    width:34px;height:32px;font-size:11px;line-height:1;
+    width:40px;height:38px;font-size:12px;line-height:1;
     display:flex;align-items:center;justify-content:center;flex:0 0 auto;
   }
   .tbtn:hover{color:var(--text);border-color:#37436e}
   .tbtn:focus-visible{outline:2px solid var(--lock);outline-offset:2px}
-  .tbtn.play{background:var(--hot);border-color:var(--hot);color:#fff;width:40px;font-size:12px}
+  .tbtn.play{background:var(--hot);border-color:var(--hot);color:#fff;width:50px;font-size:13px}
   .tbtn.play.paused{background:var(--lock);border-color:var(--lock);color:#052622}
   .tbtn.wide{width:auto;padding:0 11px;font-family:var(--display);font-size:10.5px;
     letter-spacing:.12em;text-transform:uppercase}
@@ -142,7 +185,7 @@
   .solbar button{background:transparent;border:1px solid var(--line);border-radius:3px;padding:5px 10px;font-family:var(--display);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);cursor:pointer}
   .solbar button:hover{color:var(--text);border-color:var(--lock)}
   .solbar button[hidden]{display:none}
-  .ticks{display:flex;gap:1px;height:34px;align-items:flex-end;border-bottom:1px solid var(--line)}
+  .ticks{display:flex;gap:1px;height:34px;align-items:flex-end;border-bottom:1px solid var(--line);padding:10px 0 0;box-sizing:content-box}
   .ticks i{flex:1;min-width:1px;background:var(--line);height:9px;transition:height .12s,background .12s}
   .ticks i.near{background:#33406b;height:18px}
   .ticks i.win{background:var(--lock);height:34px}
@@ -182,6 +225,11 @@
       </div>
       <input type="file" id="file" accept="image/png,image/webp,image/*" multiple hidden>
       <div class="objs" id="objs"></div>
+      <div class="pickbar" id="pickbar" hidden>
+        <span id="pickCount">0 selected</span>
+        <button id="pickAll">All</button>
+        <button id="pickNone">None</button>
+      </div>
       <p class="note">The number on each cut row is how many frames <b>that piece alone</b> is landed for. The smallest one is what the viewer has to watch.</p>
     </div>
 
@@ -192,14 +240,14 @@
         <button data-style="flat" aria-pressed="false">Flat</button>
       </div>
       <div class="row">
-        <label>Shadow opacity <b id="vFade">55%</b></label>
-        <input type="range" id="fade" min="10" max="100" step="5" value="55">
+        <label>Shadow opacity <b id="vFade">100%</b></label>
+        <input type="range" id="fade" min="10" max="100" step="5" value="100">
       </div>
       <p class="note">True colour keeps the object's own colours. Flat replaces them with one high-contrast tone. Opacity applies to whole-object pieces; a piece cut <i>out of</i> an object is always solid so it merges with its body when it lands.</p>
     </div>
 
     <div class="group">
-      <h2>Selected object</h2>
+      <h2 id="selHead">Selected object</h2>
       <label class="check" style="margin-top:0"><input type="checkbox" id="bgRemove" disabled> Remove its background</label>
       <div class="row">
         <label>Removal strength <b id="vBgTol">60</b></label>
@@ -243,14 +291,25 @@
 
       <div id="cutPane">
         <p class="sub">Its motion</p>
-        <div class="seg" id="omodeSeg">
-          <button data-omode="" aria-pressed="true">Scene</button>
-          <button data-omode="rotate" aria-pressed="false">Spin</button>
-          <button data-omode="orbit" aria-pressed="false">Drift</button>
-          <button data-omode="sweep" aria-pressed="false">Sweep</button>
-          <button data-omode="carousel" aria-pressed="false">Carousel</button>
-          <button data-omode="pulse" aria-pressed="false">Zoom</button>
+        <div class="seg" id="omodeSeg"></div>
+        <div class="row" id="rowOSweep">
+          <label style="margin-bottom:6px">Its sweep direction</label>
+          <div class="seg four" id="osweepSeg">
+            <button data-osweep="" aria-pressed="true">Scene</button>
+            <button data-osweep="x" aria-pressed="false">Across</button>
+            <button data-osweep="y" aria-pressed="false">Down</button>
+            <button data-osweep="diag" aria-pressed="false">Diag</button>
+          </div>
         </div>
+        <div class="row">
+          <label>Pivot across <b id="vPvX">0%</b></label>
+          <input type="range" id="pvX" min="-600" max="600" step="10" value="0" disabled>
+        </div>
+        <div class="row">
+          <label>Pivot down <b id="vPvY">0%</b></label>
+          <input type="range" id="pvY" min="-600" max="600" step="10" value="0" disabled>
+        </div>
+        <p class="note">Pivot moves the point a piece turns around. At 100% it sits on the edge of the piece; past that it sits well outside, so the piece sweeps a wide arc like a planet. A far pivot makes the piece travel much further per degree, so raise the catch tolerance to match. Applies to spin, swing, carousel and zoom.</p>
         <div class="row">
           <label>Speed × <b id="vMult">—</b></label>
           <input type="range" id="omult" min="-6" max="6" step="1" value="1" disabled>
@@ -270,14 +329,29 @@
 
     <div class="group">
       <h2>Scene motion</h2>
-      <div class="seg" id="modeSeg">
-        <button data-mode="rotate" aria-pressed="true">Spin</button>
-        <button data-mode="orbit" aria-pressed="false">Drift</button>
-        <button data-mode="sweep" aria-pressed="false">Sweep</button>
-        <button data-mode="carousel" aria-pressed="false">Carousel</button>
-        <button data-mode="pulse" aria-pressed="false">Zoom</button>
+      <p class="cat">Presets</p>
+      <div class="chips" id="presetRow"></div>
+      <p class="cat">Soccer lineup</p>
+      <div class="chips" id="soccerRow"></div>
+      <div id="modeCats"></div>
+      <div class="row" id="rowSweep">
+        <label style="margin-bottom:6px">Direction</label>
+        <div class="seg" id="sweepSeg">
+          <button data-sweep="x" aria-pressed="true">Across</button>
+          <button data-sweep="y" aria-pressed="false">Down</button>
+          <button data-sweep="diag" aria-pressed="false">Diagonal</button>
+        </div>
       </div>
-      <div class="row">
+      <div class="row" id="rowFormation">
+        <label style="margin-bottom:6px">Formation shape</label>
+        <div class="chips" id="formationSeg"></div>
+      </div>
+      <div class="row" id="rowTarget">
+        <label style="margin-bottom:6px">Pause on this object</label>
+        <div class="chips" id="targetSeg"></div>
+        <p class="note">The ruler marks the frames where this object is the one to catch.</p>
+      </div>
+      <div class="row" id="rowCycles">
         <label>Cycles per loop <b id="vCycles">1</b></label>
         <input type="range" id="cycles" min="1" max="6" step="1" value="1">
       </div>
@@ -285,11 +359,55 @@
         <label>Travel <b id="vTravel">40%</b></label>
         <input type="range" id="travel" min="10" max="90" step="5" value="40">
       </div>
-      <div class="row">
+      <div class="row" id="rowStagger">
+        <label>Stagger <b id="vStagger">0%</b></label>
+        <input type="range" id="stagger" min="0" max="40" step="2" value="0">
+      </div>
+      <div class="row" id="rowWavePhase">
+        <label>Wave spacing <b id="vWavePhase">70%</b></label>
+        <input type="range" id="wavePhase" min="10" max="140" step="5" value="70">
+      </div>
+      <div class="row" id="rowSpacing">
+        <label>Conveyor spacing <b id="vSpacing">0%</b></label>
+        <input type="range" id="spacing" min="0" max="40" step="2" value="0">
+      </div>
+      <div class="row" id="rowRunGap">
+        <label>Object spacing <b id="vRunGap">420 px</b></label>
+        <input type="range" id="runGap" min="160" max="1200" step="20" value="420">
+      </div>
+      <div class="row" id="rowSeed">
+        <label>Seed <b id="vSeed">1</b></label>
+        <input type="range" id="seed" min="1" max="99" step="1" value="1">
+      </div>
+      <div class="row" id="rowRamp">
+        <label>Ramp intensity <b id="vRamp">0%</b></label>
+        <input type="range" id="ramp" min="0" max="100" step="5" value="0">
+      </div>
+      <div class="row" id="rowFakeStop">
+        <label>Fake stop strength <b id="vFakeStr">65%</b></label>
+        <input type="range" id="fakeStr" min="10" max="95" step="5" value="65">
+      </div>
+      <div class="row" id="rowFakePos">
+        <label>Fake stop position <b id="vFakePos">38%</b></label>
+        <input type="range" id="fakePos" min="15" max="85" step="1" value="38">
+      </div>
+      <div class="row" id="rowBlur">
+        <label>Blur amount <b id="vBlur">45%</b></label>
+        <input type="range" id="blurAmt" min="0" max="100" step="5" value="45">
+      </div>
+      <div class="row" id="rowBlurSamples">
+        <label>Blur samples <b id="vBlurN">5</b></label>
+        <input type="range" id="blurN" min="2" max="8" step="1" value="5">
+      </div>
+      <div class="row" id="rowFlash">
+        <label>Teleport flash <b id="vFlash">6%</b></label>
+        <input type="range" id="flash" min="2" max="24" step="1" value="6">
+      </div>
+      <div class="row" id="rowLoop">
         <label>Loop length <b id="vLoop">3.0 s</b></label>
         <input type="range" id="loop" min="1.5" max="6" step="0.5" value="3">
       </div>
-      <p class="note"><b>Sweep</b> carries pieces off one edge and back on the other. <b>Carousel</b> swings every cut piece around their shared centre. Cycles stay whole numbers so the clip loops seamlessly.</p>
+      <p class="note" id="modeNote">Cycles stay whole numbers so the clip loops seamlessly. Difficulty remappers change timing only — the solved pose is still the resting layout.</p>
     </div>
 
     <div class="group">
@@ -302,7 +420,7 @@
       <p class="note warn" id="slotWarn" hidden>Slot is as solid as the moving piece, so the two look identical when landed and the puzzle reads as already solved.</p>
       <div class="row">
         <label>Catch tolerance <b id="vTol">30 px</b></label>
-        <input type="range" id="tol" min="6" max="300" step="2" value="30">
+        <input type="range" id="tol" min="6" max="800" step="2" value="30">
       </div>
     </div>
 
@@ -330,7 +448,7 @@
       <button class="go" id="vgGen" style="margin-top:10px">Generate voice</button>
       <button class="ghost" id="vgPick">Or use an audio file (mp3, wav, m4a)</button>
       <input type="file" id="vgFile" hidden>
-      <audio id="vgPlay" controls hidden style="width:100%;margin-top:10px"></audio>
+      <audio id="vgPlay" controls playsinline preload="metadata" hidden style="width:100%;margin-top:10px"></audio>
       <button class="ghost" id="vgFit" hidden>Fit video length to voice</button>
       <button class="ghost" id="vgClear" hidden>Remove voice</button>
       <p class="note" id="vgStatus"></p>
@@ -354,11 +472,15 @@
   </aside>
 
   <main class="stage">
+    <div class="ctools">
+      <button id="multiBtn">Multi-select</button>
+      <span class="tip">drag to move · pinch to resize &amp; rotate</span>
+    </div>
     <div class="screen">
       <canvas id="view" width="1080" height="1920"></canvas>
       <div class="recdot" id="recdot"><i></i><span id="recTime">0.0s</span></div>
       <div class="landed" id="landed">All shadows landed</div>
-      <div class="hint">Click an object to select · drag to move · space to play or pause</div>
+      <div class="hint">Shift-click or Multi-select to pick several · space to play or pause</div>
     </div>
 
     <div class="transport">
@@ -385,6 +507,7 @@
   </main>
 </div>
 
+<script src="animation-math.js"></script>
 <script>
 (function(){
   "use strict";
@@ -394,15 +517,81 @@
 
   var S={
     objs:[], sel:-1,
-    bg:'#ffffff', mode:'rotate', cycles:1, travel:0.40, loop:3,
+    bg:'#ffffff', mode:'rotate', cycles:1, travel:0.40, loop:3, sweepAxis:'x',
     tol:30, reps:3,
-    style:'true', fade:0.55, slotA:0.14,
+    style:'true', fade:1.00, slotA:0.14,
     cap:'PAUSE TO FIT THE SHADOW', capOn:false, autoCap:true,
-    audio:null
+    audio:null,
+    phaseMod:'', animationStagger:0, animationSeed:1,
+    rampIntensity:0, fakeStopStrength:0.65, fakeStopPosition:0.38,
+    blurAmount:0.45, blurSamples:5, formation:'line',
+    wavePhase:0.7, conveyorSpacing:0, teleportFlash:0.06,
+    targetIndex:0, centerSpacing:420
   };
+
+  var ANIMATION_MODES=[
+    {id:'rotate', label:'Spin', category:'basic', objectCompatible:true, controls:['cycles']},
+    {id:'orbit', label:'Drift', category:'basic', objectCompatible:true, controls:['travel']},
+    {id:'pulse', label:'Zoom', category:'basic', objectCompatible:true, controls:['travel']},
+    {id:'swing', label:'Swing', category:'basic', objectCompatible:true, controls:['travel','cycles']},
+    {id:'slide', label:'Slide', category:'directional', objectCompatible:true, controls:['direction','travel']},
+    {id:'drop', label:'Drop', category:'directional', objectCompatible:true, controls:['direction','travel']},
+    {id:'bounce', label:'Bounce', category:'directional', objectCompatible:true, controls:['travel']},
+    {id:'sweep', label:'Sweep', category:'directional', objectCompatible:true, controls:['direction']},
+    {id:'cross', label:'Cross', category:'directional', objectCompatible:true, controls:['direction','travel']},
+    {id:'conveyor', label:'Conveyor', category:'directional', sceneOnly:true, controls:['direction','spacing']},
+    {id:'carousel', label:'Carousel', category:'formation', objectCompatible:true, controls:['cycles']},
+    {id:'shuffle', label:'Shuffle', category:'formation', sceneOnly:true, controls:['seed']},
+    {id:'formation', label:'Formation', category:'formation', sceneOnly:true, controls:['formation','travel']},
+    {id:'wave', label:'Wave', category:'formation', sceneOnly:true, controls:['travel','cycles','phase','direction']},
+    {id:'spotlight', label:'One at a Time', category:'formation', sceneOnly:true, controls:['target','cycles']},
+    {id:'centerRun', label:'Center Run', category:'directional', sceneOnly:true, controls:['target','direction','cycles','runGap']},
+    {id:'elastic', label:'Elastic', category:'effects', objectCompatible:true, controls:['travel','direction']},
+    {id:'teleport', label:'Teleport', category:'effects', sceneOnly:true, controls:['seed','flash']},
+    {id:'blurRush', label:'Blur Rush', category:'effects', sceneOnly:true, controls:['travel','direction','blur']}
+  ];
+  var PHASE_MODS=[
+    {id:'', label:'None', controls:[]},
+    {id:'speedRamp', label:'Speed Ramp', controls:['ramp']},
+    {id:'reverse', label:'Reverse', controls:[]},
+    {id:'fakeStop', label:'Fake Stop', controls:['fakeStop']},
+    {id:'randomAccel', label:'Random Accel', controls:['seed']}
+  ];
+  var MODE_META={};
+  ANIMATION_MODES.forEach(function(m){ MODE_META[m.id]=m; });
+  var CAT_ORDER=['basic','directional','formation','difficulty','effects'];
+  var CAT_LABEL={basic:'Basic', directional:'Directional', formation:'Formation', difficulty:'Difficulty', effects:'Effects'};
+  var FORMATION_OPTS=[
+    {id:'line', label:'Line'}, {id:'v', label:'V'}, {id:'triangle', label:'Triangle'},
+    {id:'diamond', label:'Diamond'}, {id:'23', label:'2–3'}, {id:'32', label:'3–2'},
+    {id:'random', label:'Random'}, {id:'custom', label:'Custom'}
+  ];
+  var ANIM_PRESETS=[
+    {id:'classic', label:'Classic', mode:'rotate', phaseMod:'', loop:3, cycles:1, travel:0.40, tol:30, rampIntensity:0},
+    {id:'fastShuffle', label:'Fast Shuffle', mode:'shuffle', phaseMod:'', loop:2, cycles:2, travel:0.40, tol:16, rampIntensity:0},
+    {id:'impossible', label:'Impossible', mode:'cross', phaseMod:'speedRamp', loop:2.5, cycles:1, travel:0.55, tol:10, rampIntensity:0.7},
+    {id:'soccer', label:'Soccer Lineup', mode:'formation', phaseMod:'', formation:'diamond', loop:3, cycles:1, travel:0.45, tol:24, rampIntensity:0, layout:true},
+    {id:'viral', label:'Viral', mode:'slide', phaseMod:'fakeStop', loop:2.5, cycles:1, travel:0.50, tol:14, rampIntensity:0.65, fakeStopStrength:0.8, fakeStopPosition:0.38},
+    {id:'chaos', label:'Chaos', mode:'teleport', phaseMod:'randomAccel', loop:3, cycles:1, travel:0.40, tol:12, rampIntensity:0},
+    {id:'pickOne', label:'Pick One', mode:'spotlight', phaseMod:'', loop:3, cycles:1, travel:0.40, tol:30, rampIntensity:0},
+    {id:'centerHit', label:'Center Hit', mode:'centerRun', phaseMod:'', loop:3, cycles:1, travel:0.40, tol:36, rampIntensity:0, layout:true}
+  ];
+  var SOCCER_FORMS=[
+    {id:'space', label:'Space equally'},
+    {id:'line', label:'LINE'}, {id:'v', label:'V'}, {id:'diamond', label:'DIAMOND'},
+    {id:'23', label:'2–3'}, {id:'32', label:'3–2'}
+  ];
 
   function inkColor(){ return S.bg==='#12141c' ? '#f2f5ff' : '#10131f'; }
   function cutList(){ return S.objs.filter(function(o){ return o.cut; }); }
+  function pickList(){ return S.objs.filter(function(o){ return o.pick; }); }
+  /* an edit hits every ticked object, or just the highlighted one if none are ticked */
+  function targets(){
+    var p=pickList();
+    if(p.length) return p;
+    var o=S.objs[S.sel];
+    return o?[o]:[];
+  }
   function gcd(a,b){ a=Math.abs(a); b=Math.abs(b); while(b){ var t=b; b=a%b; a=t; } return a||1; }
 
   /* ---------- flat silhouette, only used by the flat style ---------- */
@@ -541,8 +730,87 @@
 
   /* ---------- motion ---------- */
   function modeOf(o){ return o.mode || S.mode; }
+  function axisOf(o){ return o.sweepAxis || S.sweepAxis; }
   function cyclesOf(o){ return S.cycles*Math.max(1,Math.abs(o.mult||1)); }
   function dirOf(o){ return (o.mult||1)<0 ? -1 : 1; }
+  /* how many times per loop a piece is back home — a swing/bounce passes through
+     on the way out and again on the way back, so it counts double. Reverse
+     remapping also doubles landings. */
+  function landingsOf(o){
+    return cyclesOf(o)*PMMath.baseLandings(modeOf(o))*PMMath.phaseLandings(S.phaseMod||'');
+  }
+
+  function cutIndex(o){
+    var cuts=cutList();
+    for(var i=0;i<cuts.length;i++) if(cuts[i]===o) return i;
+    return 0;
+  }
+
+  function isPickMode(m){
+    return m==='spotlight' || m==='centerRun';
+  }
+
+  function targetIndex(){
+    var n=cutList().length;
+    if(!n) return 0;
+    var i=S.targetIndex|0;
+    if(i<0) i=0;
+    if(i>=n) i=n-1;
+    S.targetIndex=i;
+    return i;
+  }
+
+  function targetCut(){
+    return cutList()[targetIndex()]||null;
+  }
+
+  var motionCache={key:null, rests:null, shuffle:null, formation:null, teleport:null};
+
+  function restCenters(){
+    return cutList().map(function(o){ return pieceCenter(o); });
+  }
+
+  function ensureMotionCache(){
+    var cuts=cutList();
+    var key=PMMath.hashAnimationConfig([
+      S.mode, String(S.animationSeed), S.formation||'line', String(S.travel), String(S.cycles),
+      String(S.conveyorSpacing||0), String(S.teleportFlash||0),
+      cuts.map(function(o){ return o.x.toFixed(1)+','+o.y.toFixed(1)+','+(o.rot||0).toFixed(3); }).join(';')
+    ]);
+    if(motionCache.key===key) return motionCache;
+    var rests=restCenters();
+    motionCache={
+      key:key,
+      rests:rests,
+      shuffle:PMMath.permutationSequence(rests.length, S.animationSeed, 4),
+      teleport:PMMath.permutationSequence(rests.length, (S.animationSeed||1)+17, 3),
+      formation:PMMath.formationTargets(S.formation||'line', rests, S.animationSeed, 280)
+    };
+    return motionCache;
+  }
+
+  function phaseParams(o){
+    if(S.phaseMod==='randomAccel'){
+      var seed=(S.animationSeed||1)+cutIndex(o)*97;
+      if(!o.accelProfile || o.motionSeed!==seed){
+        o.motionSeed=seed;
+        o.accelProfile=PMMath.buildAccelProfile(seed, 8);
+      }
+    }
+    return {
+      rampIntensity:S.rampIntensity||0,
+      intensity:S.rampIntensity||0.5,
+      strength:S.fakeStopStrength,
+      position:S.fakeStopPosition,
+      profile:o.accelProfile
+    };
+  }
+
+  function phaseT(o,t){
+    var u=t;
+    if(!isPickMode(modeOf(o))) u=t+(S.animationStagger||0)*cutIndex(o);
+    return PMMath.remapPhase(u, S.phaseMod||'', phaseParams(o));
+  }
 
   /* shared pivot for carousel — the centre of gravity of everything that's cut */
   function pivot(){
@@ -553,57 +821,152 @@
     return {x:sx/cuts.length, y:sy/cuts.length};
   }
 
-  function poseFor(o,t){
-    var mode=modeOf(o), k=cyclesOf(o), dir=dirOf(o);
-    var ang=0,dx=0,dy=0,scale=1,dx2;
-    if(mode==='rotate'){
-      ang=dir*t*Math.PI*2*k;
-    } else if(mode==='orbit'){
-      var r=pieceSize(o)*S.travel;
-      var th=dir*t*Math.PI*2*k;
-      dx=r-r*Math.cos(th);
-      dy=-r*Math.sin(th)*0.55;
-    } else if(mode==='sweep'){
-      // travels the full width and wraps, so it passes home once per cycle
-      var D=W+pieceSize(o);
-      var u=(((dir*t*k)%1)+1)%1;
-      dx=u*D;
-      dx2=dx-D;                       // the copy coming back on from the other edge
-    } else if(mode==='carousel'){
-      var c=pivot();
-      var th2=dir*t*Math.PI*2*k;
-      var pcc=pieceCenter(o);
-      var vx=pcc.x-c.x, vy=pcc.y-c.y;
-      var cs=Math.cos(th2), sn=Math.sin(th2);
-      dx=(c.x+vx*cs-vy*sn)-pcc.x;
-      dy=(c.y+vx*sn+vy*cs)-pcc.y;
-      ang=th2;
-    } else {
-      scale=1+S.travel*Math.abs(Math.sin(Math.PI*t*k));
+  /* offset from a piece's centre to the point it turns around, in scene space */
+  function pivotVec(o){
+    if(!o.pv||(!o.pv.x&&!o.pv.y)) return null;
+    var sz=pieceSize(o);
+    var lx=o.pv.x*sz, ly=o.pv.y*sz;
+    var c=Math.cos(o.rot), sn=Math.sin(o.rot);
+    return {x:lx*c-ly*sn, y:lx*sn+ly*c};
+  }
+  function pivotLen(o){ var v=pivotVec(o); return v?Math.hypot(v.x,v.y):0; }
+
+  function applyPivot(o, mode, p){
+    var pv=pivotVec(o);
+    if(!pv) return p;
+    if(mode==='rotate'||mode==='swing'||mode==='carousel'){
+      var c2=Math.cos(p.ang), s2=Math.sin(p.ang);
+      p.dx+=pv.x-(pv.x*c2-pv.y*s2);
+      p.dy+=pv.y-(pv.x*s2+pv.y*c2);
+    } else if(mode==='pulse'){
+      p.dx+=pv.x*(1-p.scale);
+      p.dy+=pv.y*(1-p.scale);
     }
-    return {ang:ang,dx:dx,dy:dy,scale:scale,dx2:dx2};
+    return p;
+  }
+
+  function poseByMode(o,t,mode){
+    var k=cyclesOf(o), dir=dirOf(o);
+    var ax=axisOf(o);
+    var sz=pieceSize(o);
+    var dist=sz*S.travel;
+    var idx=cutIndex(o);
+    var cache, p;
+    switch(mode){
+      case 'rotate':
+        p=PMMath.poseRotate(t,k,dir); break;
+      case 'swing':
+        p=PMMath.poseSwing(t,k,dir,S.travel); break;
+      case 'orbit':
+        p=PMMath.poseOrbit(t,k,dir,sz*S.travel); break;
+      case 'sweep': {
+        var Dx=ax==='y'?0:W+sz, Dy=ax==='x'?0:H+sz;
+        p=PMMath.poseSweep(t,k,dir,Dx,Dy); break;
+      }
+      case 'carousel': {
+        var c=pivot(), pc=pieceCenter(o);
+        p=PMMath.poseCarousel(t,k,dir,pc.x-c.x,pc.y-c.y); break;
+      }
+      case 'pulse':
+        p=PMMath.posePulse(t,k,S.travel); break;
+      case 'slide':
+        p=PMMath.poseSlide(t,k,dir,dist,ax); break;
+      case 'drop':
+        p=PMMath.poseDrop(t,k,dir,dist,true); break;
+      case 'bounce':
+        p=PMMath.poseBounce(t,k,dir,dist); break;
+      case 'cross':
+        p=PMMath.poseCross(t,k,dir,dist,ax,idx); break;
+      case 'wave':
+        p=PMMath.poseWave(t,k,dist,idx*(S.wavePhase||0.7),ax); break;
+      case 'conveyor': {
+        var Dx2=ax==='y'?0:W+sz, Dy2=ax==='x'?0:H+sz;
+        p=PMMath.poseConveyor(t,k,dir,Dx2,Dy2,idx,S.conveyorSpacing||0); break;
+      }
+      case 'elastic':
+        p=PMMath.poseElastic(t,dist,ax); break;
+      case 'blurRush':
+        p=PMMath.poseBlurRush(t,k,dir,dist,ax); break;
+      case 'shuffle':
+        cache=ensureMotionCache();
+        p=PMMath.poseShuffle(t,idx,cache.rests,cache.shuffle); break;
+      case 'formation':
+        cache=ensureMotionCache();
+        p=PMMath.poseFormation(t, cache.rests[idx]||{x:0,y:0}, cache.formation[idx]||cache.rests[idx]||{x:0,y:0}); break;
+      case 'teleport':
+        cache=ensureMotionCache();
+        p=PMMath.poseTeleport(t,idx,cache.rests,cache.teleport,S.teleportFlash); break;
+      case 'spotlight': {
+        var pcS=pieceCenter(o);
+        p=PMMath.poseSpotlight(t,k,idx,cutList().length,pcS.x,pcS.y,W/2,H*0.52); break;
+      }
+      case 'centerRun': {
+        var pcR=pieceCenter(o);
+        p=PMMath.poseCenterRun(t,k,dir,idx,cutList().length,pcR.x,pcR.y,W,H,S.centerSpacing||420); break;
+      }
+      default:
+        throw new Error('unknown mode '+mode);
+    }
+    if(p.alpha===undefined) p.alpha=1;
+    return applyPivot(o, mode, p);
+  }
+
+  function poseFor(o,t){
+    t=PMMath.wrap01(t);
+    return poseByMode(o, phaseT(o,t), modeOf(o));
   }
 
   function errFor(o,t){
-    var p=poseFor(o,t), mode=modeOf(o), r=radius(o);
-    if(mode==='rotate'){
-      var a=Math.abs(((p.ang%(Math.PI*2))+Math.PI*2)%(Math.PI*2));
-      if(a>Math.PI) a=Math.PI*2-a;
-      return a*r;
+    var p=poseFor(o,t), mode=modeOf(o);
+    var r=radius(o)+pivotLen(o);        // an offset pivot makes the far edge travel further
+    switch(mode){
+      case 'rotate':
+        return PMMath.angDist(p.ang)*r;
+      case 'swing':
+        return Math.abs(p.ang)*r;
+      case 'orbit':
+        return Math.hypot(p.dx,p.dy);
+      case 'sweep':
+      case 'conveyor':
+        return Math.min(Math.hypot(p.dx,p.dy), Math.hypot(p.wrap.dx, p.wrap.dy));
+      case 'carousel':
+        return Math.max(Math.hypot(p.dx,p.dy), PMMath.angDist(p.ang)*r);
+      case 'pulse':
+        return Math.abs(p.scale-1)*r;
+      case 'slide':
+        return Math.abs(p.dx)+Math.abs(p.dy);
+      case 'drop':
+      case 'bounce':
+        return Math.abs(p.dy)+Math.abs(p.dx);
+      case 'cross':
+      case 'wave':
+      case 'shuffle':
+      case 'formation':
+      case 'blurRush':
+        return Math.hypot(p.dx,p.dy);
+      case 'elastic':
+        return Math.hypot(p.dx,p.dy)+PMMath.angDist(p.ang)*r+Math.abs(p.scale-1)*r;
+      case 'teleport':
+        return Math.hypot(p.dx,p.dy);
+      case 'spotlight':
+        if(cutIndex(o)!==targetIndex()) return 0;
+        return (1-(p.alpha===undefined?1:p.alpha))*400;
+      case 'centerRun': {
+        if(cutIndex(o)!==targetIndex()) return 0;
+        var pc=pieceCenter(o);
+        var track=PMMath.centerRunTrack(cutList().length, W, S.centerSpacing||420);
+        return PMMath.centerRunCenterErr(pc.x+p.dx, W, track);
+      }
+      default:
+        throw new Error('unknown mode '+mode);
     }
-    if(mode==='orbit') return Math.hypot(p.dx,p.dy);
-    if(mode==='sweep') return Math.min(Math.abs(p.dx),Math.abs(p.dx2));
-    if(mode==='carousel'){
-      var a2=Math.abs(((p.ang%(Math.PI*2))+Math.PI*2)%(Math.PI*2));
-      if(a2>Math.PI) a2=Math.PI*2-a2;
-      return Math.max(Math.hypot(p.dx,p.dy), a2*r);   // must be back in place AND upright
-    }
-    return Math.abs(p.scale-1)*r;
   }
 
   function sceneErr(t){
     var cuts=cutList();
     if(!cuts.length) return 1e9;
+    var tgt=targetCut();
+    if(tgt && isPickMode(modeOf(tgt))) return errFor(tgt,t);
     var worst=0;
     for(var i=0;i<cuts.length;i++){
       var e=errFor(cuts[i],t);
@@ -716,19 +1079,24 @@
     ctx.restore();
   }
 
-  function drawPiece(o,alpha,p,dxOverride){
+  function drawPiece(o,alpha,p,off){
+    var pa=alpha*(p && p.alpha!==undefined ? p.alpha : 1);
     var pc=pieceCenter(o);
-    var dx=(dxOverride!==undefined?dxOverride:(p?p.dx:0));
+    var dx=off?off.dx:(p?p.dx:0);
+    var dy=off?off.dy:(p?p.dy:0);
     if(isSplit(o)){
       var d=o.splitSize*o.scale;
-      drawAt(cutSrc(o),alpha,pc.x+dx,pc.y+(p?p.dy:0),o.rot+(p?p.ang:0),p?p.scale:1,d,d);
+      drawAt(cutSrc(o),pa,pc.x+dx,pc.y+dy,o.rot+(p?p.ang:0),p?p.scale:1,d,d);
     } else {
-      drawAt(pieceSrc(o),alpha,pc.x+dx,pc.y+(p?p.dy:0),o.rot+(p?p.ang:0),p?p.scale:1,dispW(o),dispH(o));
+      drawAt(pieceSrc(o),pa,pc.x+dx,pc.y+dy,o.rot+(p?p.ang:0),p?p.scale:1,dispW(o),dispH(o));
     }
   }
 
   function captionText(){
     if(!S.autoCap) return S.cap;
+    if(isPickMode(S.mode)){
+      return S.mode==='spotlight' ? 'PAUSE ON THE RIGHT ONE' : 'PAUSE AT THE CENTRE';
+    }
     var n=cutList().length;
     return n<=1 ? S.cap : 'PAUSE TO FIT ALL '+n;
   }
@@ -748,10 +1116,10 @@
     // everything that stays put: whole objects, plus the leftover body of split ones
     S.objs.forEach(function(o){
       if(!o.cut) drawAt(o.img,1,o.x,o.y,o.rot,1,dispW(o),dispH(o));
-      else if(isSplit(o)) drawAt(remSrc(o),1,o.x,o.y,o.rot,1,dispW(o),dispH(o));
+      else if(isSplit(o) && !isPickMode(modeOf(o))) drawAt(remSrc(o),1,o.x,o.y,o.rot,1,dispW(o),dispH(o));
     });
 
-    if(S.slotA>0){
+    if(S.slotA>0 && !isPickMode(S.mode)){
       var a=slotAlpha();
       S.objs.forEach(function(o){ if(o.cut) drawPiece(o,a,null); });
     }
@@ -768,13 +1136,51 @@
       var sh = 0.28;
       if(sp) sh = 0.28*Math.min(1, errFor(o,t)/Math.max(1,S.tol*3));
 
+      if(p.alpha===0) return;
+
       ctx.save();
       ctx.shadowColor='rgba(0,0,0,'+sh.toFixed(3)+')';
       ctx.shadowBlur=30; ctx.shadowOffsetY=10;
+      var blurOn = modeOf(o)==='blurRush' && (S.blurAmount||0)>0 && errFor(o,t)>S.tol;
+      if(blurOn){
+        var samples=Math.max(2, Math.min(8, S.blurSamples|0));
+        var dt=(S.blurAmount*0.08)/samples;
+        for(var s=samples;s>=1;s--){
+          var gp=poseFor(o, PMMath.wrap01(t-s*dt));
+          gp.alpha=(0.08+((samples-s)/(samples-1||1))*0.14)*(p.alpha===undefined?1:p.alpha);
+          ctx.shadowBlur=0;
+          drawPiece(o,pa,gp);
+          if(gp.wrap) drawPiece(o,pa,gp,gp.wrap);
+        }
+        ctx.shadowBlur=30;
+      }
       drawPiece(o,pa,p);
-      if(p.dx2!==undefined) drawPiece(o,pa,p,p.dx2);
+      if(p.wrap) drawPiece(o,pa,p,p.wrap);
       ctx.restore();
     });
+
+    if(!recording && S.mode==='centerRun'){
+      ctx.save();
+      ctx.strokeStyle='rgba(255,61,127,0.4)';
+      ctx.lineWidth=4;
+      ctx.setLineDash([16,12]);
+      ctx.beginPath();
+      ctx.moveTo(W/2, 140);
+      ctx.lineTo(W/2, H-140);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    if(!recording){
+      S.objs.forEach(function(o,i){
+        if(!o.pick||i===S.sel) return;
+        ctx.save();
+        ctx.translate(o.x,o.y); ctx.rotate(o.rot);
+        ctx.strokeStyle='#35e0d0'; ctx.lineWidth=3; ctx.setLineDash([12,9]);
+        ctx.strokeRect(-dispW(o)/2,-dispH(o)/2,dispW(o),dispH(o));
+        ctx.restore();
+      });
+    }
 
     if(!recording && S.sel>=0 && S.objs[S.sel]){
       var so=S.objs[S.sel], w=dispW(so), h=dispH(so);
@@ -841,7 +1247,7 @@
 
     // solutions per loop = gcd of the effective cycle counts
     var g=0;
-    cuts.forEach(function(o){ g = g ? gcd(g,cyclesOf(o)) : cyclesOf(o); });
+    cuts.forEach(function(o){ g = g ? gcd(g,landingsOf(o)) : landingsOf(o); });
     var solN=document.getElementById('solN');
     var uniqBtn=document.getElementById('makeUnique');
     if(!cuts.length){ solN.textContent='—'; solN.className='n'; uniqBtn.hidden=true; }
@@ -873,6 +1279,9 @@
 
     var extra='';
     if(best>0) extra=' Widest window: <b>'+(best/FPS).toFixed(2)+'s</b>.';
+    if(cuts.every(function(o){ var m=modeOf(o); return m==='swing'||m==='bounce'; })){
+      extra+=' Every piece passes home twice per cycle, so the count is always even — give one piece Spin to make it unique.';
+    }
     if(cuts.length>1 && limiter){
       extra+=' Watch <span class="lim">'+limiter.name+'</span>';
       extra+= best===0 ? ' — drop its speed or raise the tolerance.' : ' — it is landed for the fewest frames.';
@@ -940,7 +1349,7 @@
     var target=null;
     var loopOpts=[S.loop,3,2,1.5,4,5,6].filter(function(v,i,arr){ return arr.indexOf(v)===i; });
     for(var li=0; li<loopOpts.length && !target; li++){
-      for(var tv=6; tv<=300; tv+=2){
+      for(var tv=6; tv<=800; tv+=2){
         var w=windowAt(tv,loopOpts[li]);
         var lo=Math.max(1,Math.round(3*FPS/30)), hi=Math.round(7*FPS/30);
         if(w>=lo && w<=hi){ target={tol:tv,loop:loopOpts[li],win:w}; break; }
@@ -990,6 +1399,7 @@
     document.getElementById('fNow').textContent=i;
     document.getElementById('fTot').textContent=n;
     var landed = !recording && !playing && winMap.length===n && winMap[i];
+    landedEl.textContent = isPickMode(S.mode) ? "That's the one" : 'All shadows landed';
     landedEl.classList.toggle('on',!!landed);
   }
 
@@ -1000,7 +1410,21 @@
   document.getElementById('stepFwd').addEventListener('click',function(){
     seekFrame(Math.floor(curT*frameCount())+1);
   });
-  document.getElementById('toSolved').addEventListener('click',function(){ seekFrame(0); });
+  document.getElementById('toSolved').addEventListener('click',function(){
+    var n=winMap.length;
+    if(!n) return;
+    var cur=Math.max(0, Math.min(n-1, Math.floor(curT*n)));
+    var start=0;
+    if(winMap[cur]){
+      var i=cur;
+      while(winMap[i]){ i=(i+1)%n; if(i===cur) break; }
+      start=i;
+    }
+    for(var k=0;k<n;k++){
+      var f=(start+k)%n;
+      if(winMap[f]){ seekFrame(f); return; }
+    }
+  });
   scrub.addEventListener('input',function(){ seekFrame(+scrub.value); });
 
   // the ruler doubles as a scrubber, so you can click straight onto a winning frame
@@ -1038,18 +1462,32 @@
 
   /* ---------- object list ---------- */
   var objsEl=document.getElementById('objs');
+  function refreshPickBar(){
+    var n=pickList().length;
+    var bar=document.getElementById('pickbar');
+    bar.hidden=S.objs.length<2;
+    document.getElementById('pickCount').textContent = n ? n+' selected — edits apply to all' : 'Tick rows to edit several at once';
+    var h=document.getElementById('selHead');
+    h.textContent = n>1 ? n+' objects selected' : 'Selected object';
+  }
+
   function renderList(){
     objsEl.innerHTML='';
     S.objs.forEach(function(o,i){
       var row=document.createElement('div');
       row.className='obj'+(i===S.sel?' sel':'');
       var badge = o.cut ? '<span class="mult">'+(o.split&&o.split.on?'\u2702 ':'')+(o.mult<0?'−':'')+Math.abs(o.mult)+'×</span>' : '';
-      row.innerHTML='<div class="thumb" style="background-image:url('+o.url+')"></div>'+
+      if(o.pick) row.className+=' picked';
+      row.innerHTML='<input type="checkbox" class="pick" '+(o.pick?'checked':'')+' title="Select for bulk edits">'+
+                    '<div class="thumb" style="background-image:url('+o.url+')"></div>'+
                     '<div class="nm">'+o.name+'</div>'+badge+
                     '<span class="w" data-i="'+i+'"></span>'+
                     '<button class="cut'+(o.cut?' on':'')+'" data-a="cut">cut</button>'+
                     '<button class="del" data-a="del" title="Remove">&times;</button>';
       row.addEventListener('click',function(e){
+        if(e.target.classList&&e.target.classList.contains('pick')){
+          o.pick=e.target.checked; refreshPickBar(); renderList(); syncSel(); return;
+        }
         var b=e.target.closest('button');
         if(b&&b.dataset.a==='cut'){
           o.cut=!o.cut;
@@ -1063,10 +1501,12 @@
       });
       objsEl.appendChild(row);
     });
+    refreshPickBar();
     var any=cutList().length>0;
     document.getElementById('rec').disabled=!any;
     document.getElementById('snap').disabled=!S.objs.length;
     paintBadges();
+    paintTargetUI();
   }
 
   function removeObj(i){
@@ -1077,7 +1517,8 @@
   }
 
   function syncSel(){
-    var o=S.objs[S.sel];
+    // ticked rows drive the panel even when no single row is highlighted
+    var o=S.objs[S.sel]||targets()[0];
     var sc=document.getElementById('oscale'), rt=document.getElementById('orot'), ml=document.getElementById('omult');
     sc.disabled=!o; rt.disabled=!o; ml.disabled=!o||!o.cut;
     document.getElementById('cutPane').style.opacity=(o&&o.cut)?'1':'0.42';
@@ -1089,7 +1530,7 @@
       document.getElementById('bgTol').disabled=true;
       document.getElementById('bgHint').hidden=true;
       var c0=document.getElementById('splitOn'); c0.checked=false; c0.disabled=true;
-      ['splitS','splitX','splitY'].forEach(function(id){ document.getElementById(id).disabled=true; });
+      ['splitS','splitX','splitY','pvX','pvY'].forEach(function(id){ document.getElementById(id).disabled=true; });
       document.getElementById('splitPane').style.opacity='0.42';
       return;
     }
@@ -1102,6 +1543,17 @@
     Array.prototype.forEach.call(document.getElementById('omodeSeg').children,function(c){
       c.setAttribute('aria-pressed',String((c.dataset.omode||'')===(o.mode||'')));
     });
+    Array.prototype.forEach.call(document.getElementById('osweepSeg').children,function(c){
+      c.setAttribute('aria-pressed',String((c.dataset.osweep||'')===(o.sweepAxis||'')));
+    });
+    document.getElementById('rowOSweep').classList.toggle('off', !usesAxis(modeOf(o)));
+
+    var pv=o.pv||{x:0,y:0};
+    var pvxEl=document.getElementById('pvX'), pvyEl=document.getElementById('pvY');
+    pvxEl.disabled=!o.cut; pvyEl.disabled=!o.cut;
+    pvxEl.value=Math.round(pv.x*100); pvyEl.value=Math.round(pv.y*100);
+    document.getElementById('vPvX').textContent=pivotLabel(o,pv.x*100);
+    document.getElementById('vPvY').textContent=pivotLabel(o,pv.y*100);
 
     var bgc=document.getElementById('bgRemove');
     bgc.disabled=false; bgc.checked=!!o.bgOn;
@@ -1141,7 +1593,7 @@
           var o={
             img:im, url:e.target.result, name:f.name.replace(/\.[^.]+$/,'').slice(0,20),
             scale:340/Math.max(im.naturalWidth,im.naturalHeight),
-            rot:0, mult:1, mode:'', cut:(n===0), win:0,
+            rot:0, mult:1, mode:'', sweepAxis:'', cut:(n===0), win:0, pick:false, pv:{x:0,y:0},
             split:{on:false,shape:'circle',fx:0,fy:0,fs:0.40},
             rawURL:e.target.result, bgOn:false, bgTol:60,
             x:Math.max(120,Math.min(W-120,300+(n%3)*240)),
@@ -1190,33 +1642,163 @@
     return am.a[ay*am.w+ax]>24;
   }
 
-  var drag=null;
-  view.addEventListener('pointerdown',function(e){
-    var p=toCanvas(e), found=-1;
-    for(var i=S.objs.length-1;i>=0;i--){ if(hitTest(S.objs[i],p.x,p.y)){ found=i; break; } }
-    if(found<0){ S.sel=-1; renderList(); syncSel(); return; }
-    S.sel=found; renderList(); syncSel();
-    var o=S.objs[found];
-    drag={i:found,ox:p.x-o.x,oy:p.y-o.y};
-    view.setPointerCapture(e.pointerId);
+  function clampX(v){ return Math.max(40,Math.min(W-40,v)); }
+  function clampY(v){ return Math.max(40,Math.min(H-40,v)); }
+  function clampScale(o,sc){
+    var m=Math.max(o.img.naturalWidth,o.img.naturalHeight);
+    return Math.max(40/m,Math.min(2000/m,sc));
+  }
+
+  /* what a canvas gesture acts on: every ticked object, else the highlighted one */
+  function gestureSet(){
+    var p=pickList();
+    if(p.length) return p;
+    var o=S.objs[S.sel];
+    return o?[o]:[];
+  }
+
+  var multiMode=false;
+  var multiBtn=document.getElementById('multiBtn');
+  multiBtn.addEventListener('click',function(){
+    multiMode=!multiMode;
+    multiBtn.classList.toggle('on',multiMode);
+    multiBtn.textContent=multiMode?'Multi-select on':'Multi-select';
+  });
+
+  var ptrs={}, ptrCount=0, dragInfo=null, pinch=null;
+
+  function hitAt(p){
+    for(var i=S.objs.length-1;i>=0;i--) if(hitTest(S.objs[i],p.x,p.y)) return i;
+    return -1;
+  }
+
+  function startPinch(){
+    var ids=Object.keys(ptrs);
+    if(ids.length<2) return;
+    var set=gestureSet();
+    if(!set.length) return;
+    var a=ptrs[ids[0]], b=ptrs[ids[1]];
+    pinch={
+      cx0:(a.x+b.x)/2, cy0:(a.y+b.y)/2,
+      dist0:Math.max(1,Math.hypot(b.x-a.x,b.y-a.y)),
+      ang0:Math.atan2(b.y-a.y,b.x-a.x),
+      items:set.map(function(o){ return {o:o,x0:o.x,y0:o.y,s0:o.scale,r0:o.rot}; })
+    };
+  }
+
+  function applyPinch(){
+    var ids=Object.keys(ptrs);
+    if(!pinch||ids.length<2) return;
+    var a=ptrs[ids[0]], b=ptrs[ids[1]];
+    var cx=(a.x+b.x)/2, cy=(a.y+b.y)/2;
+    var f=Math.max(1,Math.hypot(b.x-a.x,b.y-a.y))/pinch.dist0;
+    var dA=Math.atan2(b.y-a.y,b.x-a.x)-pinch.ang0;
+    var cs=Math.cos(dA), sn=Math.sin(dA);
+    pinch.items.forEach(function(it){
+      var vx=(it.x0-pinch.cx0)*f, vy=(it.y0-pinch.cy0)*f;
+      it.o.x=clampX(cx+vx*cs-vy*sn);
+      it.o.y=clampY(cy+vx*sn+vy*cs);
+      it.o.scale=clampScale(it.o,it.s0*f);
+      it.o.rot=it.r0+dA;
+    });
+  }
+
+  function beginDrag(p,set){
+    // remember where everything started so the group moves as one rigid piece
+    dragInfo={
+      sx:p.x, sy:p.y,
+      items:set.map(function(o){ return {o:o,x0:o.x,y0:o.y}; })
+    };
     view.classList.add('grabbing');
+  }
+
+  function applyDrag(p){
+    if(!dragInfo) return;
+    var ddx=p.x-dragInfo.sx, ddy=p.y-dragInfo.sy;
+    var minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+    dragInfo.items.forEach(function(it){
+      if(it.x0<minX)minX=it.x0; if(it.x0>maxX)maxX=it.x0;
+      if(it.y0<minY)minY=it.y0; if(it.y0>maxY)maxY=it.y0;
+    });
+    // clamp the whole group, not each object, so spacing never distorts
+    ddx=Math.max(40-minX,Math.min(W-40-maxX,ddx));
+    ddy=Math.max(40-minY,Math.min(H-40-maxY,ddy));
+    dragInfo.items.forEach(function(it){ it.o.x=it.x0+ddx; it.o.y=it.y0+ddy; });
+  }
+
+  view.addEventListener('pointerdown',function(e){
+    view.setPointerCapture(e.pointerId);
+    ptrs[e.pointerId]=toCanvas(e); ptrCount++;
+
+    if(ptrCount===2){ dragInfo=null; startPinch(); return; }
+    if(ptrCount!==1) return;
+
+    var p=ptrs[e.pointerId];
+    var found=hitAt(p);
+
+    if(found<0){
+      if(!multiMode){ S.sel=-1; renderList(); syncSel(); }
+      dragInfo=null;
+      return;
+    }
+
+    var o=S.objs[found];
+    var toggling = multiMode||e.shiftKey||e.ctrlKey||e.metaKey;
+    if(toggling){
+      o.pick=!o.pick;
+      S.sel=found;
+      renderList(); syncSel();
+      dragInfo=null;                      // a tap that changes selection should not also drag
+      return;
+    }
+
+    S.sel=found;
+    renderList(); syncSel();
+    beginDrag(p, o.pick ? pickList() : [o]);   // grabbing a ticked object moves the whole set
   });
+
   view.addEventListener('pointermove',function(e){
-    if(!drag) return;
-    var p=toCanvas(e), o=S.objs[drag.i];
-    o.x=Math.max(40,Math.min(W-40,p.x-drag.ox));
-    o.y=Math.max(40,Math.min(H-40,p.y-drag.oy));
+    if(!(e.pointerId in ptrs)) return;
+    ptrs[e.pointerId]=toCanvas(e);
+    if(pinch) applyPinch();
+    else if(dragInfo) applyDrag(ptrs[e.pointerId]);
   });
-  function endDrag(){ if(drag){ drag=null; rebuildRuler(); } view.classList.remove('grabbing'); }
-  view.addEventListener('pointerup',endDrag);
-  view.addEventListener('pointercancel',endDrag);
+
+  function endPtr(e){
+    if(e.pointerId in ptrs){ delete ptrs[e.pointerId]; ptrCount=Math.max(0,ptrCount-1); }
+    if(ptrCount<2 && pinch){ pinch=null; syncSel(); rebuildRuler(); }
+    if(ptrCount===0){
+      if(dragInfo){ dragInfo=null; rebuildRuler(); }
+      view.classList.remove('grabbing');
+      syncSel();
+    }
+  }
+  view.addEventListener('pointerup',endPtr);
+  view.addEventListener('pointercancel',endPtr);
+
+  /* wheel resizes the selection on desktop, mirroring pinch */
+  view.addEventListener('wheel',function(e){
+    var set=gestureSet();
+    if(!set.length) return;
+    e.preventDefault();
+    var f=e.deltaY<0?1.06:1/1.06;
+    var cx=0,cy=0;
+    set.forEach(function(o){ cx+=o.x; cy+=o.y; });
+    cx/=set.length; cy/=set.length;
+    set.forEach(function(o){
+      o.x=clampX(cx+(o.x-cx)*f);
+      o.y=clampY(cy+(o.y-cy)*f);
+      o.scale=clampScale(o,o.scale*f);
+    });
+    syncSel(); rebuildRuler();
+  },{passive:false});
 
   /* ---------- controls ---------- */
   function seg(id,key,after){
     var box=document.getElementById(id);
     box.addEventListener('click',function(e){
       var b=e.target.closest('button'); if(!b) return;
-      S[key]=b.dataset[key];
+      S[key]=b.dataset[key]!==undefined?b.dataset[key]:S[key];
       Array.prototype.forEach.call(box.children,function(c){ c.setAttribute('aria-pressed',String(c===b)); });
       if(after) after();
     });
@@ -1230,41 +1812,69 @@
     rebuildRuler(); syncTransport();
   });
 
+  /* scene-wide sweep direction (the attribute is data-sweep, not data-sweepAxis) */
+  document.getElementById('sweepSeg').addEventListener('click',function(e){
+    var b=e.target.closest('button'); if(!b) return;
+    S.sweepAxis=b.dataset.sweep;
+    Array.prototype.forEach.call(this.children,function(c){ c.setAttribute('aria-pressed',String(c===b)); });
+    rebuildRuler();
+  });
+
+  /* per-object override; blank means follow the scene */
+  document.getElementById('osweepSeg').addEventListener('click',function(e){
+    var b=e.target.closest('button'); if(!b) return;
+    var val=b.dataset.osweep||'';
+    targets().forEach(function(o){ o.sweepAxis=val; });
+    Array.prototype.forEach.call(this.children,function(c){ c.setAttribute('aria-pressed',String(c===b)); });
+    syncTravel(); rebuildRuler();
+  });
+
   seg('bgSeg','bg',refreshSils);
-  seg('modeSeg','mode',function(){ syncTravel(); rebuildRuler(); });
   seg('styleSeg','style',checkSpin);
+
+  document.getElementById('pickAll').addEventListener('click',function(){
+    S.objs.forEach(function(o){ o.pick=true; });
+    renderList(); syncSel();
+  });
+  document.getElementById('pickNone').addEventListener('click',function(){
+    S.objs.forEach(function(o){ o.pick=false; });
+    renderList(); syncSel();
+  });
 
   var bgTimer=null;
   document.getElementById('bgRemove').addEventListener('change',function(){
-    var o=S.objs[S.sel]; if(!o){ this.checked=false; return; }
-    o.bgOn=this.checked;
-    document.getElementById('bgTol').disabled=!o.bgOn;
-    applyBg(o);
+    var list=targets(); if(!list.length){ this.checked=false; return; }
+    var on=this.checked;
+    document.getElementById('bgTol').disabled=!on;
+    list.forEach(function(o){ o.bgOn=on; applyBg(o); });
   });
   document.getElementById('bgTol').addEventListener('input',function(){
     var v=parseFloat(this.value);
     document.getElementById('vBgTol').textContent=v;
-    var o=S.objs[S.sel]; if(!o||!o.bgOn) return;
-    o.bgTol=v;
+    var list=targets().filter(function(o){ return o.bgOn; });
+    if(!list.length) return;
+    list.forEach(function(o){ o.bgTol=v; });
     if(bgTimer) clearTimeout(bgTimer);
-    bgTimer=setTimeout(function(){ applyBg(o); },180);   // re-cut only once the slider settles
+    bgTimer=setTimeout(function(){ list.forEach(function(o){ applyBg(o); }); },180);
   });
 
   document.getElementById('splitOn').addEventListener('change',function(){
-    var o=S.objs[S.sel]; if(!o){ this.checked=false; return; }
-    if(!o.split) o.split={on:false,shape:'circle',fx:0,fy:0,fs:0.40};
-    o.split.on=this.checked;
-    if(o.split.on && !o.cut) o.cut=true;      // nothing moves unless the object is cut
-    buildSplit(o);
+    var list=targets(); if(!list.length){ this.checked=false; return; }
+    var on=this.checked;
+    list.forEach(function(o){
+      if(!o.split) o.split={on:false,shape:'circle',fx:0,fy:0,fs:0.40};
+      o.split.on=on;
+      if(on && !o.cut) o.cut=true;            // nothing moves unless the object is cut
+      buildSplit(o);
+    });
     renderList(); syncSel(); syncTravel(); rebuildRuler();
   });
 
   document.getElementById('splitShapeSeg').addEventListener('click',function(e){
     var b=e.target.closest('button'); if(!b) return;
-    var o=S.objs[S.sel]; if(!o||!o.split) return;
-    o.split.shape=b.dataset.sshape;
+    targets().forEach(function(o){ if(o.split){ o.split.shape=b.dataset.sshape; buildSplit(o); } });
     Array.prototype.forEach.call(this.children,function(c){ c.setAttribute('aria-pressed',String(c===b)); });
-    buildSplit(o); rebuildRuler();
+    rebuildRuler();
   });
 
   function splitSlider(id,out,key,scale){
@@ -1272,27 +1882,292 @@
     el.addEventListener('input',function(){
       var v=parseFloat(el.value);
       document.getElementById(out).textContent=Math.round(v)+'%';
-      var o=S.objs[S.sel]; if(!o||!o.split) return;
-      o.split[key]=v/scale;
-      buildSplit(o); rebuildRuler();
+      targets().forEach(function(o){ if(o.split){ o.split[key]=v/scale; buildSplit(o); } });
+      rebuildRuler();
     });
   }
+  function pivotLabel(o,v){
+    if(!o) return Math.round(v)+'%';
+    return Math.round(v)+'%  ('+Math.round(v/100*pieceSize(o))+'px)';
+  }
+  function pivotSlider(id,out,axis){
+    var el=document.getElementById(id);
+    el.addEventListener('input',function(){
+      var v=parseFloat(el.value);
+      targets().forEach(function(o){ if(!o.pv) o.pv={x:0,y:0}; o.pv[axis]=v/100; });
+      document.getElementById(out).textContent=pivotLabel(S.objs[S.sel]||targets()[0],v);
+      rebuildRuler();
+    });
+  }
+  pivotSlider('pvX','vPvX','x');
+  pivotSlider('pvY','vPvY','y');
+
   splitSlider('splitS','vSplitS','fs',100);
   splitSlider('splitX','vSplitX','fx',100);
   splitSlider('splitY','vSplitY','fy',100);
 
   document.getElementById('omodeSeg').addEventListener('click',function(e){
     var b=e.target.closest('button'); if(!b) return;
+    targets().forEach(function(o){ o.mode=b.dataset.omode||''; });
     var o=S.objs[S.sel]; if(!o) return;
-    o.mode=b.dataset.omode||'';
     Array.prototype.forEach.call(this.children,function(c){ c.setAttribute('aria-pressed',String(c===b)); });
     syncTravel(); rebuildRuler();
   });
 
-  function syncTravel(){
-    // travel only means something for drift and zoom
-    var used=S.objs.some(function(o){ return o.cut && (modeOf(o)==='orbit'||modeOf(o)==='pulse'); });
-    document.getElementById('rowTravel').classList.toggle('off',!used);
+  function usesAxis(m){
+    return m==='sweep'||m==='slide'||m==='drop'||m==='cross'||m==='conveyor'||m==='wave'||m==='elastic'||m==='blurRush'||m==='centerRun';
+  }
+
+  function activeControls(){
+    var set={};
+    function add(list){ (list||[]).forEach(function(c){ set[c]=true; }); }
+    var meta=MODE_META[S.mode];
+    if(meta) add(meta.controls);
+    S.objs.forEach(function(o){
+      if(!o.cut) return;
+      var mm=MODE_META[modeOf(o)];
+      if(mm) add(mm.controls);
+    });
+    var ph=PHASE_MODS.filter(function(p){ return p.id===S.phaseMod; })[0];
+    if(ph) add(ph.controls);
+    if((S.rampIntensity||0)>0 || S.phaseMod==='speedRamp') set.ramp=true;
+    return set;
+  }
+
+  function syncTravel(){ syncAnimControls(); }
+
+  function syncAnimControls(){
+    var c=activeControls();
+    function row(id,on){ var el=document.getElementById(id); if(el) el.classList.toggle('off',!on); }
+    row('rowTravel', !!c.travel);
+    row('rowSweep', !!c.direction);
+    row('rowCycles', !!c.cycles);
+    row('rowStagger', !!c.direction || !!c.phase || S.mode==='slide' || S.mode==='drop');
+    row('rowWavePhase', !!c.phase);
+    row('rowSpacing', !!c.spacing);
+    row('rowRunGap', !!c.runGap);
+    row('rowSeed', !!c.seed);
+    row('rowRamp', !!c.ramp || S.phaseMod==='speedRamp' || S.phaseMod==='fakeStop');
+    row('rowFakeStop', !!c.fakeStop);
+    row('rowFakePos', !!c.fakeStop);
+    row('rowBlur', !!c.blur);
+    row('rowBlurSamples', !!c.blur);
+    row('rowFlash', !!c.flash);
+    row('rowFormation', !!c.formation);
+    row('rowTarget', !!c.target);
+    row('rowLoop', true);
+    paintTargetUI();
+    var note=document.getElementById('modeNote');
+    if(S.mode==='spotlight') note.innerHTML='<b>One at a Time</b> shows a single cut object, then the next. Pause while the chosen object is on screen.';
+    else if(S.mode==='centerRun') note.innerHTML='<b>Center Run</b> spaces every cut object equally and scrolls them across. Raise <b>Object spacing</b> until they no longer overlap. Pause when the chosen object hits the centre line.';
+    else note.textContent='Cycles stay whole numbers so the clip loops seamlessly. Difficulty remappers change timing only — the solved pose is still the resting layout.';
+    var selO=S.objs[S.sel]||targets()[0];
+    document.getElementById('rowOSweep').classList.toggle('off', !(selO && usesAxis(modeOf(selO))));
+    paintModeUI();
+  }
+
+  function paintModeUI(){
+    Array.prototype.forEach.call(document.querySelectorAll('#modeCats [data-mode]'),function(b){
+      b.setAttribute('aria-pressed', String(b.dataset.mode===S.mode));
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('#modeCats [data-phase]'),function(b){
+      b.setAttribute('aria-pressed', String((b.dataset.phase||'')===(S.phaseMod||'')));
+    });
+    Array.prototype.forEach.call(document.getElementById('formationSeg').children,function(b){
+      b.setAttribute('aria-pressed', String(b.dataset.form===S.formation));
+    });
+  }
+
+  function paintTargetUI(){
+    var host=document.getElementById('targetSeg');
+    if(!host) return;
+    var cuts=cutList();
+    var cur=targetIndex();
+    host.innerHTML='';
+    if(!cuts.length){
+      var empty=document.createElement('span');
+      empty.className='note';
+      empty.style.margin='0';
+      empty.textContent='Mark objects CUT to pick an answer.';
+      host.appendChild(empty);
+      return;
+    }
+    cuts.forEach(function(o,i){
+      var b=document.createElement('button');
+      b.type='button';
+      b.textContent=o.name||('P'+(i+1));
+      b.setAttribute('aria-pressed', String(i===cur));
+      b.addEventListener('click',function(){
+        S.targetIndex=i;
+        paintTargetUI();
+        rebuildRuler();
+      });
+      host.appendChild(b);
+    });
+  }
+
+  function setSceneMode(id){
+    S.mode=id;
+    motionCache.key=null;
+    if(id==='centerRun' && cutList().length>1) spaceEqually();
+    syncAnimControls(); rebuildRuler();
+  }
+
+  function setPhaseMod(id){
+    S.phaseMod=id;
+    if(id==='speedRamp' && !(S.rampIntensity>0)) S.rampIntensity=0.5;
+    if(id==='speedRamp'){
+      document.getElementById('ramp').value=Math.round(S.rampIntensity*100);
+      document.getElementById('vRamp').textContent=Math.round(S.rampIntensity*100)+'%';
+    }
+    motionCache.key=null;
+    syncAnimControls(); rebuildRuler();
+  }
+
+  function buildAnimUI(){
+    var host=document.getElementById('modeCats');
+    host.innerHTML='';
+    CAT_ORDER.forEach(function(cat){
+      var title=document.createElement('p');
+      title.className='cat';
+      title.textContent=CAT_LABEL[cat];
+      host.appendChild(title);
+      var box=document.createElement('div');
+      box.className='seg';
+      if(cat==='difficulty'){
+        PHASE_MODS.forEach(function(p){
+          var b=document.createElement('button');
+          b.dataset.phase=p.id;
+          b.textContent=p.label;
+          b.setAttribute('aria-pressed', String((p.id||'')===(S.phaseMod||'')));
+          box.appendChild(b);
+        });
+        box.addEventListener('click',function(e){
+          var btn=e.target.closest('button'); if(!btn) return;
+          setPhaseMod(btn.dataset.phase||'');
+        });
+      } else {
+        ANIMATION_MODES.filter(function(m){ return m.category===cat; }).forEach(function(m){
+          var b=document.createElement('button');
+          b.dataset.mode=m.id;
+          b.textContent=m.label;
+          b.setAttribute('aria-pressed', String(m.id===S.mode));
+          box.appendChild(b);
+        });
+        box.addEventListener('click',function(e){
+          var btn=e.target.closest('button'); if(!btn) return;
+          setSceneMode(btn.dataset.mode);
+        });
+      }
+      host.appendChild(box);
+    });
+
+    var om=document.getElementById('omodeSeg');
+    om.innerHTML='';
+    var sceneBtn=document.createElement('button');
+    sceneBtn.dataset.omode='';
+    sceneBtn.textContent='Scene';
+    sceneBtn.setAttribute('aria-pressed','true');
+    om.appendChild(sceneBtn);
+    ANIMATION_MODES.filter(function(m){ return m.objectCompatible; }).forEach(function(m){
+      var b=document.createElement('button');
+      b.dataset.omode=m.id;
+      b.textContent=m.label;
+      b.setAttribute('aria-pressed','false');
+      om.appendChild(b);
+    });
+
+    var forms=document.getElementById('formationSeg');
+    forms.innerHTML='';
+    FORMATION_OPTS.forEach(function(f){
+      var b=document.createElement('button');
+      b.dataset.form=f.id;
+      b.textContent=f.label;
+      b.setAttribute('aria-pressed', String(f.id===S.formation));
+      forms.appendChild(b);
+    });
+    forms.addEventListener('click',function(e){
+      var btn=e.target.closest('button'); if(!btn) return;
+      S.formation=btn.dataset.form;
+      if(S.mode!=='formation') S.mode='formation';
+      motionCache.key=null;
+      syncAnimControls(); rebuildRuler();
+    });
+
+    var presets=document.getElementById('presetRow');
+    presets.innerHTML='';
+    ANIM_PRESETS.forEach(function(p){
+      var b=document.createElement('button');
+      b.dataset.preset=p.id;
+      b.textContent=p.label;
+      presets.appendChild(b);
+    });
+    presets.addEventListener('click',function(e){
+      var btn=e.target.closest('button'); if(!btn) return;
+      applyPreset(btn.dataset.preset);
+    });
+
+    var soccer=document.getElementById('soccerRow');
+    soccer.innerHTML='';
+    SOCCER_FORMS.forEach(function(f){
+      var b=document.createElement('button');
+      b.dataset.soccer=f.id;
+      b.textContent=f.label;
+      soccer.appendChild(b);
+    });
+    soccer.addEventListener('click',function(e){
+      var btn=e.target.closest('button'); if(!btn) return;
+      applySoccer(btn.dataset.soccer);
+    });
+  }
+
+  function spaceEqually(){
+    var cuts=cutList();
+    if(!cuts.length) return;
+    var n=cuts.length, margin=160, span=W-margin*2;
+    cuts.forEach(function(o,i){
+      o.x = n===1 ? W/2 : margin + span*i/Math.max(1,n-1);
+      o.y = H*0.52;
+    });
+    motionCache.key=null;
+  }
+
+  function applySoccer(id){
+    if(id==='space'){ spaceEqually(); renderList(); syncSel(); rebuildRuler(); return; }
+    S.mode='formation';
+    S.formation=id;
+    if(cutList().length>=2) spaceEqually();
+    motionCache.key=null;
+    syncAnimControls(); renderList(); syncSel(); rebuildRuler();
+  }
+
+  function applyPreset(id){
+    var p=ANIM_PRESETS.filter(function(x){ return x.id===id; })[0];
+    if(!p) return;
+    S.mode=p.mode;
+    S.phaseMod=p.phaseMod||'';
+    S.loop=p.loop; S.cycles=p.cycles; S.travel=p.travel; S.tol=p.tol;
+    S.rampIntensity=p.rampIntensity||0;
+    if(p.formation) S.formation=p.formation;
+    if(p.fakeStopStrength!==undefined) S.fakeStopStrength=p.fakeStopStrength;
+    if(p.fakeStopPosition!==undefined) S.fakeStopPosition=p.fakeStopPosition;
+    if(p.layout) spaceEqually();
+    document.getElementById('loop').value=S.loop;
+    document.getElementById('vLoop').textContent=S.loop.toFixed(1)+' s';
+    document.getElementById('cycles').value=S.cycles;
+    document.getElementById('vCycles').textContent=S.cycles;
+    document.getElementById('travel').value=Math.round(S.travel*100);
+    document.getElementById('vTravel').textContent=Math.round(S.travel*100)+'%';
+    document.getElementById('tol').value=S.tol;
+    document.getElementById('vTol').textContent=S.tol+' px';
+    document.getElementById('ramp').value=Math.round(S.rampIntensity*100);
+    document.getElementById('vRamp').textContent=Math.round(S.rampIntensity*100)+'%';
+    document.getElementById('fakeStr').value=Math.round(S.fakeStopStrength*100);
+    document.getElementById('vFakeStr').textContent=Math.round(S.fakeStopStrength*100)+'%';
+    document.getElementById('fakePos').value=Math.round(S.fakeStopPosition*100);
+    document.getElementById('vFakePos').textContent=Math.round(S.fakeStopPosition*100)+'%';
+    motionCache.key=null;
+    syncAnimControls(); rebuildRuler();
   }
 
   function slider(id,out,fmt,apply){
@@ -1304,24 +2179,34 @@
     });
   }
   slider('oscale','vScale',function(v){return Math.round(v)+' px';},function(v){
-    var o=S.objs[S.sel]; if(!o) return;
-    o.scale=v/Math.max(o.img.naturalWidth,o.img.naturalHeight);
+    targets().forEach(function(o){ o.scale=v/Math.max(o.img.naturalWidth,o.img.naturalHeight); });
     rebuildRuler();          // split canvases are in natural pixels, so scale alone is enough
   });
   slider('orot','vRot',function(v){return Math.round(v)+'°';},function(v){
-    var o=S.objs[S.sel]; if(!o) return;
-    o.rot=v*Math.PI/180;
+    targets().forEach(function(o){ o.rot=v*Math.PI/180; });
   });
   slider('omult','vMult',function(v){return v;},function(v){
-    var o=S.objs[S.sel]; if(!o||!o.cut) return 'not cut';
+    var list=targets().filter(function(o){ return o.cut; });
+    if(!list.length) return 'not cut';
     if(v===0) v=1;
     document.getElementById('omult').value=v;
-    o.mult=v; o.multTouched=true;
+    list.forEach(function(o){ o.mult=v; o.multTouched=true; });
     renderList(); rebuildRuler();
     return (v<0?'reverse ':'')+Math.abs(v)+'×';
   });
-  slider('cycles','vCycles',function(v){return v;},function(v){ S.cycles=v; rebuildRuler(); });
-  slider('travel','vTravel',function(v){return Math.round(v*100)+'%';},function(v){ S.travel=v/100; rebuildRuler(); return S.travel; });
+  slider('cycles','vCycles',function(v){return v;},function(v){ S.cycles=v; motionCache.key=null; rebuildRuler(); });
+  slider('travel','vTravel',function(v){return Math.round(v*100)+'%';},function(v){ S.travel=v/100; motionCache.key=null; rebuildRuler(); return S.travel; });
+  slider('stagger','vStagger',function(v){return Math.round(v)+'%';},function(v){ S.animationStagger=v/100; rebuildRuler(); return S.animationStagger; });
+  slider('wavePhase','vWavePhase',function(v){return Math.round(v)+'%';},function(v){ S.wavePhase=v/100; rebuildRuler(); return S.wavePhase; });
+  slider('spacing','vSpacing',function(v){return Math.round(v)+'%';},function(v){ S.conveyorSpacing=v/100; motionCache.key=null; rebuildRuler(); return S.conveyorSpacing; });
+  slider('runGap','vRunGap',function(v){return Math.round(v)+' px';},function(v){ S.centerSpacing=v; motionCache.key=null; rebuildRuler(); });
+  slider('seed','vSeed',function(v){return v;},function(v){ S.animationSeed=v; motionCache.key=null; S.objs.forEach(function(o){ o.accelProfile=null; }); rebuildRuler(); });
+  slider('ramp','vRamp',function(v){return Math.round(v)+'%';},function(v){ S.rampIntensity=v/100; rebuildRuler(); return S.rampIntensity; });
+  slider('fakeStr','vFakeStr',function(v){return Math.round(v)+'%';},function(v){ S.fakeStopStrength=v/100; rebuildRuler(); return S.fakeStopStrength; });
+  slider('fakePos','vFakePos',function(v){return Math.round(v)+'%';},function(v){ S.fakeStopPosition=v/100; rebuildRuler(); return S.fakeStopPosition; });
+  slider('blurAmt','vBlur',function(v){return Math.round(v)+'%';},function(v){ S.blurAmount=v/100; return S.blurAmount; });
+  slider('blurN','vBlurN',function(v){return v;},function(v){ S.blurSamples=v; });
+  slider('flash','vFlash',function(v){return Math.round(v)+'%';},function(v){ S.teleportFlash=v/100; motionCache.key=null; rebuildRuler(); return S.teleportFlash; });
   slider('fade','vFade',function(v){return Math.round(v*100)+'%';},function(v){ S.fade=v/100; checkSlot(); return S.fade; });
   slider('slotA','vSlot',function(v){return v===0?'hidden':Math.round(v*100)+'%';},function(v){ S.slotA=v/100; checkSlot(); return S.slotA; });
 
@@ -1329,7 +2214,8 @@
     var el=document.getElementById('spinWarn');
     var o=S.objs[S.sel];
     var cue = o ? (S.style==='flat' ? o.cueFlat : o.cueTrue) : undefined;
-    el.hidden = !(o && isSplit(o) && modeOf(o)==='rotate' && cue!==undefined && cue<0.06);
+    var m=o?modeOf(o):'';
+    el.hidden = !(o && isSplit(o) && (m==='rotate'||m==='swing') && cue!==undefined && cue<0.06);
   }
 
   // a slot as opaque as the piece hides the whole game, so say so
@@ -1511,7 +2397,18 @@
     return new Uint8Array([(v>>8)&255,v&255]);
   }
 
-  async function loadAudioBytes(bytes,name){
+  function guessMime(name,fallback){
+    var n=(name||'').toLowerCase();
+    if(/\.mp3$/.test(n)) return 'audio/mpeg';
+    if(/\.wav$/.test(n)) return 'audio/wav';
+    if(/\.m4a$|\.mp4$/.test(n)) return 'audio/mp4';
+    if(/\.aac$/.test(n)) return 'audio/aac';
+    if(/\.ogg$|\.opus$/.test(n)) return 'audio/ogg';
+    if(/\.flac$/.test(n)) return 'audio/flac';
+    return fallback||'audio/mpeg';
+  }
+
+  async function loadAudioBytes(bytes,name,mime){
     var AC=window.AudioContext||window.webkitAudioContext;
     if(!AC) throw new Error('This browser cannot decode audio.');
     var ac=new AC();
@@ -1519,8 +2416,10 @@
     try{ ac.close(); }catch(e){}
     S.audio={buffer:buf,name:name};
     if(vgURL) URL.revokeObjectURL(vgURL);
-    vgURL=URL.createObjectURL(new Blob([bytes]));
+    // iOS refuses to play a blob URL with no content type, so always give it one
+    vgURL=URL.createObjectURL(new Blob([bytes],{type:guessMime(name,mime)}));
     vgPlay.src=vgURL; vgPlay.hidden=false;
+    vgPlay.load();
     document.getElementById('vgFit').hidden=false;
     document.getElementById('vgClear').hidden=false;
     document.getElementById('vgDur').textContent=buf.duration.toFixed(1)+'s';
@@ -1551,7 +2450,7 @@
         var t=await res.text();
         throw new Error('OpenAI returned '+res.status+'. '+t.slice(0,180));
       }
-      await loadAudioBytes(await res.arrayBuffer(),'Generated voice');
+      await loadAudioBytes(await res.arrayBuffer(),'voice.wav','audio/wav');
     }catch(err){
       var m=String(err.message||err);
       if(/Failed to fetch|NetworkError/i.test(m)){
@@ -1570,7 +2469,7 @@
     try{
       var bytes=await f.arrayBuffer();
       if(!bytes||!bytes.byteLength) throw new Error('empty');
-      await loadAudioBytes(bytes,f.name);
+      await loadAudioBytes(bytes,f.name,f.type||'');
     }catch(e){
       vgSay('Could not read '+f.name+'. Try an mp3, wav or m4a — on iPad, tap Browse in the picker and choose the file from Files rather than the Music library.',true);
     }
@@ -1837,7 +2736,31 @@
     }
   });
 
+  buildAnimUI();
   renderList(); syncSel(); syncTravel(); checkSlot(); rebuildRuler(); checkSpin();
+
+  /* test hook — used by the math/integration checks, not by the editor UI */
+  window.__PM = {
+    S: S, poseFor: poseFor, errFor: errFor, sceneErr: sceneErr,
+    landingsOf: landingsOf, rebuildRuler: rebuildRuler, seekFrame: seekFrame,
+    setSceneMode: setSceneMode, setPhaseMod: setPhaseMod, applyPreset: applyPreset,
+    spaceEqually: spaceEqually, frameCount: frameCount, winMap: function(){ return winMap; },
+    installFixtures: function(n){
+      S.objs=[];
+      for(var i=0;i<n;i++){
+        var img={naturalWidth:120, naturalHeight:220};
+        S.objs.push({
+          img:img, url:'', name:'P'+(i+1),
+          scale:1, rot:0, mult:1, mode:'', sweepAxis:'', cut:true, win:0, pick:false,
+          pv:{x:0,y:0}, split:{on:false,shape:'circle',fx:0,fy:0,fs:0.40},
+          x:200+i*160, y:900, alpha:{rNat:80,opaque:0.4}
+        });
+      }
+      S.sel=0;
+      motionCache.key=null;
+      rebuildRuler();
+    }
+  };
 })();
 </script>
 </body>
