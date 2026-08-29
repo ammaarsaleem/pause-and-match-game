@@ -229,6 +229,7 @@
         <span id="pickCount">0 selected</span>
         <button id="pickAll">All</button>
         <button id="pickNone">None</button>
+        <button id="pickCut">Cut selected</button>
       </div>
       <p class="note">The number on each cut row is how many frames <b>that piece alone</b> is landed for. The smallest one is what the viewer has to watch.</p>
     </div>
@@ -259,7 +260,7 @@
       <p class="sub">Placement</p>
       <div class="row" style="margin-top:0">
         <label>Size <b id="vScale">—</b></label>
-        <input type="range" id="oscale" min="40" max="2000" step="10" value="340" disabled>
+        <input type="range" id="oscale" min="40" max="8000" step="10" value="340" disabled>
       </div>
       <div class="row">
         <label>Resting angle <b id="vRot">—</b></label>
@@ -268,8 +269,8 @@
       <p class="sub">Arrange</p>
       <div class="chips" id="layoutRow">
         <button type="button" data-layout="center">Center</button>
-        <button type="button" data-layout="across">Space across</button>
-        <button type="button" data-layout="down">Space down</button>
+        <button type="button" data-layout="across">Horizontal</button>
+        <button type="button" data-layout="down">Vertical</button>
         <button type="button" data-layout="row">Same row</button>
         <button type="button" data-layout="col">Same column</button>
         <button type="button" data-layout="left">Align left</button>
@@ -279,7 +280,11 @@
         <button type="button" data-layout="size">Same size</button>
         <button type="button" data-layout="upright">Upright</button>
       </div>
-      <p class="note">Applies to ticked objects, or every object if none are ticked.</p>
+      <div class="row">
+        <label>Spacing between items <b id="vItemGap">80 px</b></label>
+        <input type="range" id="itemGap" min="0" max="2400" step="10" value="80">
+      </div>
+      <p class="note">Horizontal and Vertical line items up and apply this gap between their edges. Arrange applies to ticked objects, or every object if none are ticked.</p>
 
       <p class="sub">Cut a piece out of it</p>
       <label class="check"><input type="checkbox" id="splitOn" disabled> Only part of this object moves</label>
@@ -457,16 +462,13 @@
       <h2>Voice-over <span id="vgDur"></span></h2>
       <textarea id="vgText" rows="3" placeholder="Only 1 in 100 can pause on the exact frame. Can you?"></textarea>
       <div class="vgrow">
-        <select id="vgVoice" aria-label="Voice">
-          <option value="alloy">Alloy</option><option value="ash">Ash</option>
-          <option value="ballad">Ballad</option><option value="coral">Coral</option>
-          <option value="echo">Echo</option><option value="fable">Fable</option>
-          <option value="nova" selected>Nova</option><option value="onyx">Onyx</option>
-          <option value="sage">Sage</option><option value="shimmer">Shimmer</option>
+        <select id="vgVoice" aria-label="ElevenLabs voice">
+          <option value="21m00Tcm4TlvDq8ikWAM">Rachel</option>
         </select>
-        <input type="text" id="vgModel" value="gpt-4o-mini-tts" aria-label="Model">
+        <button class="ghost" id="vgLoadVoices" type="button">Load voices</button>
       </div>
-      <input type="password" id="vgKey" placeholder="OpenAI API key (sk-...)" autocomplete="off">
+      <input type="text" id="vgModel" value="eleven_multilingual_v2" aria-label="ElevenLabs model">
+      <input type="password" value="sk_8c8a3d3059e93b7953742059ab3ab4a25932baf63fbf723d" id="vgKey" placeholder="ElevenLabs API key" autocomplete="off">
       <button class="go" id="vgGen" style="margin-top:10px">Generate voice</button>
       <button class="ghost" id="vgPick">Or use an audio file (mp3, wav, m4a)</button>
       <input type="file" id="vgFile" hidden>
@@ -474,7 +476,7 @@
       <button class="ghost" id="vgFit" hidden>Fit video length to voice</button>
       <button class="ghost" id="vgClear" hidden>Remove voice</button>
       <p class="note" id="vgStatus"></p>
-      <p class="note warn">Your key is sent straight from this browser to OpenAI for the one request and is never stored or saved into this file. Use a project key you can revoke.</p>
+      <p class="note warn">Your ElevenLabs key is sent directly from this browser for the request and is never stored or saved into this file. Use a project key you can revoke.</p>
     </div>
 
     <div class="group">
@@ -548,7 +550,8 @@
     rampIntensity:0, fakeStopStrength:0.65, fakeStopPosition:0.38,
     blurAmount:0.45, blurSamples:5, formation:'line',
     wavePhase:0.7, conveyorSpacing:0, teleportFlash:0.06,
-    targetIndex:0, centerSpacing:420, sceneDir:1
+    targetIndex:0, centerSpacing:420, sceneDir:1,
+    itemSpacing:80, layoutPack:''
   };
 
   var ANIMATION_MODES=[
@@ -613,6 +616,14 @@
     if(p.length) return p;
     var o=S.objs[S.sel];
     return o?[o]:[];
+  }
+  /* motion only runs on cut objects — bulk edits must mark the whole set */
+  function ensureCut(list){
+    var changed=false;
+    (list||[]).forEach(function(o){
+      if(!o.cut){ o.cut=true; changed=true; }
+    });
+    return changed;
   }
   function gcd(a,b){ a=Math.abs(a); b=Math.abs(b); while(b){ var t=b; b=a%b; a=t; } return a||1; }
 
@@ -876,7 +887,7 @@
   function poseByMode(o,t,mode){
     var k=cyclesOf(o), dir=dirOf(o);
     var ax=axisOf(o);
-    var sz=pieceSize(o);
+    var sz=travelSize(o);
     var dist=sz*S.travel;
     var idx=cutIndex(o);
     var cache, p;
@@ -888,8 +899,8 @@
       case 'orbit':
         p=PMMath.poseOrbit(t,k,dir,sz*S.travel); break;
       case 'sweep': {
-        var Dx=ax==='y'?0:W+sz, Dy=ax==='x'?0:H+sz;
-        p=PMMath.poseSweep(t,k,dir,Dx,Dy); break;
+        var span=sweepSpan(o,ax);
+        p=PMMath.poseSweep(t,k,dir,span.Dx,span.Dy); break;
       }
       case 'carousel': {
         var c=pivot(), pc=pieceCenter(o);
@@ -908,8 +919,8 @@
       case 'wave':
         p=PMMath.poseWave(t,k,dist,idx*(S.wavePhase||0.7),ax); break;
       case 'conveyor': {
-        var Dx2=ax==='y'?0:W+sz, Dy2=ax==='x'?0:H+sz;
-        p=PMMath.poseConveyor(t,k,dir,Dx2,Dy2,idx,S.conveyorSpacing||0); break;
+        var span2=sweepSpan(o,ax);
+        p=PMMath.poseConveyor(t,k,dir,span2.Dx,span2.Dy,idx,S.conveyorSpacing||0); break;
       }
       case 'elastic':
         p=PMMath.poseElastic(t,dist,ax); break;
@@ -1094,6 +1105,70 @@
   function pieceSize(o){
     return isSplit(o) ? o.splitSize*o.scale : Math.max(dispW(o),dispH(o));
   }
+  /* several cut pieces keep Arrange spacing only if they share one travel */
+  function groupPieceSize(){
+    var m=0;
+    cutList().forEach(function(o){
+      var s=pieceSize(o);
+      if(s>m) m=s;
+    });
+    return m||200;
+  }
+  function travelSize(o){
+    return cutList().length>1 ? groupPieceSize() : pieceSize(o);
+  }
+  /* how far apart the outermost cut pieces rest, per axis */
+  function groupExtent(){
+    var cuts=cutList();
+    if(cuts.length<2) return {x:0,y:0};
+    var minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+    cuts.forEach(function(o){
+      var c=pieceCenter(o);
+      if(c.x<minX) minX=c.x;
+      if(c.x>maxX) maxX=c.x;
+      if(c.y<minY) minY=c.y;
+      if(c.y>maxY) maxY=c.y;
+    });
+    return {x:maxX-minX, y:maxY-minY};
+  }
+  /* A sweep repeats every Dx/Dy, so a lineup longer than that wraps onto itself
+     and the last piece lands on the first. Stretch the track past the canvas
+     until the whole group fits with its spacing intact. */
+  function sweepSpan(o, ax){
+    var sz=travelSize(o);
+    var gap=S.itemSpacing||0;
+    var ext=groupExtent();
+    return {
+      Dx: ax==='y' ? 0 : Math.max(W+sz, ext.x+sz+gap),
+      Dy: ax==='x' ? 0 : Math.max(H+sz, ext.y+sz+gap)
+    };
+  }
+  /* Sweep uses a fixed reference speed. A larger off-canvas track therefore
+     takes longer instead of making the pieces move faster. */
+  function sweepLoopFactor(){
+    var factor=1;
+    cutList().forEach(function(o){
+      if(modeOf(o)!=='sweep') return;
+      var ax=axisOf(o), span=sweepSpan(o,ax);
+      var track=ax==='y' ? span.Dy : span.Dx;
+      var base=ax==='y' ? 1920 : 1080;
+      factor=Math.max(factor,track/base);
+    });
+    return factor;
+  }
+  function hasSweepMotion(){
+    return S.mode==='sweep' || cutList().some(function(o){ return modeOf(o)==='sweep'; });
+  }
+  function timelineLoopSeconds(){
+    return S.loop*sweepLoopFactor();
+  }
+  function unifyGroupDir(list){
+    if(!list || list.length<2) return;
+    list.forEach(function(o){
+      if(o.multTouched) return;
+      o.mult=Math.max(1, Math.abs(o.mult||1));
+    });
+  }
 
   /* ---------- draw ---------- */
   function drawAt(src,alpha,x,y,rot,sc,w,h){
@@ -1246,7 +1321,8 @@
   var ticksEl=document.getElementById('ticks'), tickNodes=[], winMap=[];
 
   function rebuildRuler(){
-    var n=Math.round(S.loop*FPS);
+    var n=Math.round(timelineLoopSeconds()*FPS);
+    document.getElementById('vLoop').textContent=timelineLoopSeconds().toFixed(1)+' s';
     if(tickNodes.length!==n){
       ticksEl.innerHTML=''; tickNodes=[];
       ticksEl.style.gap = n>180 ? '0px' : '1px';   // 60fps packs far more ticks in
@@ -1399,12 +1475,12 @@
   var scrub=document.getElementById('scrub');
   var landedEl=document.getElementById('landed');
 
-  function frameCount(){ return Math.round(S.loop*FPS); }
+  function frameCount(){ return Math.round(timelineLoopSeconds()*FPS); }
 
   function setPlaying(on){
     if(recording) return;
     playing=on;
-    if(on) t0=performance.now()-curT*S.loop*1000;   // resume from where it was parked
+    if(on) t0=performance.now()-curT*timelineLoopSeconds()*1000;   // resume from where it was parked
     playBtn.textContent = on ? '❚❚' : '▶';
     playBtn.classList.toggle('paused',!on);
     playBtn.setAttribute('aria-label', on?'Pause':'Play');
@@ -1480,7 +1556,7 @@
   function frame(now){
     if(recording){ requestAnimationFrame(frame); return; }
     if(playing){
-      curT=((now-t0)/(S.loop*1000))%1;
+      curT=((now-t0)/(timelineLoopSeconds()*1000))%1;
       if(curT<0) curT+=1;        // rAF's timestamp can predate t0, and JS % keeps the sign
     }
     draw(curT); markNow(curT); syncTransport();
@@ -1494,7 +1570,7 @@
     var n=pickList().length;
     var bar=document.getElementById('pickbar');
     bar.hidden=S.objs.length<2;
-    document.getElementById('pickCount').textContent = n ? n+' selected — edits apply to all' : 'Tick rows to edit several at once';
+    document.getElementById('pickCount').textContent = n ? n+' selected — size, motion and arrange apply to all of them' : 'Tick rows or press All, then change a setting once';
     var h=document.getElementById('selHead');
     h.textContent = n>1 ? n+' objects selected' : 'Selected object';
   }
@@ -1518,10 +1594,13 @@
         }
         var b=e.target.closest('button');
         if(b&&b.dataset.a==='cut'){
-          o.cut=!o.cut;
-          if(o.cut && Math.abs(o.mult)===1 && !o.multTouched){
-            o.mult=(cutList().length%2===0)?1:-1;   // counter-rotation is free difficulty-wise
-          }
+          var set=(o.pick && pickList().length>1) ? pickList() : [o];
+          var next=!o.cut;
+          set.forEach(function(item){ item.cut=next; });
+          set.forEach(function(item){
+            if(!item.cut || item.multTouched || Math.abs(item.mult)!==1) return;
+            item.mult = set.length>1 ? 1 : ((cutList().length%2===0)?1:-1);
+          });
           S.sel=i; renderList(); syncSel(); syncTravel(); rebuildRuler(); return;
         }
         if(b&&b.dataset.a==='del'){ removeObj(i); return; }
@@ -1670,11 +1749,12 @@
     return am.a[ay*am.w+ax]>24;
   }
 
-  function clampX(v){ return Math.max(40,Math.min(W-40,v)); }
-  function clampY(v){ return Math.max(40,Math.min(H-40,v)); }
+  /* keep centres from flying to infinity; the visible canvas itself is not a wall */
+  function clampX(v){ return Math.max(-W*3,Math.min(W*4,v)); }
+  function clampY(v){ return Math.max(-H*3,Math.min(H*4,v)); }
   function clampScale(o,sc){
     var m=Math.max(o.img.naturalWidth,o.img.naturalHeight);
-    return Math.max(40/m,Math.min(2000/m,sc));
+    return Math.max(40/m,Math.min(8000/m,sc));
   }
 
   /* what a canvas gesture acts on: every ticked object, else the highlighted one */
@@ -1749,8 +1829,8 @@
       if(it.y0<minY)minY=it.y0; if(it.y0>maxY)maxY=it.y0;
     });
     // clamp the whole group, not each object, so spacing never distorts
-    ddx=Math.max(40-minX,Math.min(W-40-maxX,ddx));
-    ddy=Math.max(40-minY,Math.min(H-40-maxY,ddy));
+    ddx=Math.max(-W*3-minX,Math.min(W*4-maxX,ddx));
+    ddy=Math.max(-H*3-minY,Math.min(H*4-maxY,ddy));
     dragInfo.items.forEach(function(it){ it.o.x=it.x0+ddx; it.o.y=it.y0+ddy; });
   }
 
@@ -1852,8 +1932,12 @@
   document.getElementById('osweepSeg').addEventListener('click',function(e){
     var b=e.target.closest('button'); if(!b) return;
     var val=b.dataset.osweep||'';
-    targets().forEach(function(o){ o.sweepAxis=val; });
+    var list=targets();
+    var cutChanged=ensureCut(list);
+    unifyGroupDir(list);
+    list.forEach(function(o){ o.sweepAxis=val; });
     Array.prototype.forEach.call(this.children,function(c){ c.setAttribute('aria-pressed',String(c===b)); });
+    if(cutChanged){ renderList(); syncSel(); }
     syncTravel(); rebuildRuler();
   });
 
@@ -1866,6 +1950,21 @@
   });
   document.getElementById('pickNone').addEventListener('click',function(){
     S.objs.forEach(function(o){ o.pick=false; });
+    renderList(); syncSel();
+  });
+  document.getElementById('pickCut').addEventListener('click',function(){
+    var set=pickList().length?pickList():S.objs.slice();
+    if(!set.length) return;
+    ensureCut(set);
+    renderList(); syncSel(); syncTravel(); rebuildRuler();
+  });
+  document.addEventListener('keydown',function(e){
+    if(!(e.ctrlKey||e.metaKey) || (e.key!=='a'&&e.key!=='A')) return;
+    var tag=(e.target&&e.target.tagName||'').toLowerCase();
+    if(tag==='input'||tag==='textarea'||tag==='select') return;
+    if(!S.objs.length) return;
+    e.preventDefault();
+    S.objs.forEach(function(o){ o.pick=true; });
     renderList(); syncSel();
   });
   document.getElementById('layoutRow').addEventListener('click',function(e){
@@ -1931,8 +2030,11 @@
     var el=document.getElementById(id);
     el.addEventListener('input',function(){
       var v=parseFloat(el.value);
-      targets().forEach(function(o){ if(!o.pv) o.pv={x:0,y:0}; o.pv[axis]=v/100; });
+      var list=targets();
+      var cutChanged=ensureCut(list);
+      list.forEach(function(o){ if(!o.pv) o.pv={x:0,y:0}; o.pv[axis]=v/100; });
       document.getElementById(out).textContent=pivotLabel(S.objs[S.sel]||targets()[0],v);
+      if(cutChanged){ renderList(); syncSel(); }
       rebuildRuler();
     });
   }
@@ -1945,10 +2047,13 @@
 
   document.getElementById('omodeSeg').addEventListener('click',function(e){
     var b=e.target.closest('button'); if(!b) return;
-    targets().forEach(function(o){ o.mode=b.dataset.omode||''; });
-    var o=S.objs[S.sel]; if(!o) return;
+    var list=targets();
+    ensureCut(list);
+    list.forEach(function(o){ o.mode=b.dataset.omode||''; });
+    var mid=b.dataset.omode||'';
+    if(usesAxis(mid) || mid==='bounce') unifyGroupDir(list);
     Array.prototype.forEach.call(this.children,function(c){ c.setAttribute('aria-pressed',String(c===b)); });
-    syncTravel(); rebuildRuler();
+    renderList(); syncSel(); syncTravel(); rebuildRuler();
   });
 
   function usesAxis(m){
@@ -1996,7 +2101,8 @@
     row('rowLoop', true);
     paintTargetUI();
     var note=document.getElementById('modeNote');
-    if(S.mode==='spotlight') note.innerHTML='<b>One at a Time</b> shows a single cut object, then the next. Pause while the chosen object is on screen.';
+    if(hasSweepMotion()) note.innerHTML='<b>Sweep</b> keeps a constant travel speed. If the arranged track is larger than the canvas, the loop becomes longer instead of the pieces speeding up.';
+    else if(S.mode==='spotlight') note.innerHTML='<b>One at a Time</b> shows a single cut object, then the next. Pause while the chosen object is on screen.';
     else if(S.mode==='centerRun') note.innerHTML='<b>Center Run</b> moves every cut object at the same scene speed and direction. Raise <b>Object spacing</b> until they no longer overlap. Pause when the chosen object hits the centre line.';
     else note.textContent='Cycles stay whole numbers so the clip loops seamlessly. Difficulty remappers change timing only — the solved pose is still the resting layout.';
     var selO=S.objs[S.sel]||targets()[0];
@@ -2050,6 +2156,13 @@
   function setSceneMode(id){
     S.mode=id;
     motionCache.key=null;
+    var picked=pickList();
+    if(picked.length){
+      ensureCut(picked);
+      if(id==='sweep'||id==='slide'||id==='drop'||id==='bounce'||id==='conveyor'||id==='wave'||id==='elastic'||id==='blurRush'){
+        unifyGroupDir(picked);
+      }
+    }
     if(id==='centerRun'){
       cutList().forEach(function(o){ o.mult=1; o.multTouched=true; });
       if(cutList().length>1) spaceEqually();
@@ -2171,7 +2284,10 @@
   }
 
   function spaceEqually(){
-    spaceAcross(cutList());
+    var set=cutList();
+    if(S.layoutPack==='across'){ packLine(set,'x'); return; }
+    if(S.layoutPack==='down'){ packLine(set,'y'); return; }
+    spaceAcross(set);
   }
 
   function spaceAcross(set){
@@ -2184,11 +2300,40 @@
     motionCache.key=null;
   }
 
+  /* line items up on one axis with a fixed edge-to-edge gap, packed around the group centre */
+  function packLine(set, axis){
+    if(!set.length) return;
+    var gap=S.itemSpacing||0;
+    var items=set.slice().sort(function(a,b){
+      return axis==='x' ? a.x-b.x : a.y-b.y;
+    });
+    var sizes=items.map(function(o){ return axis==='x' ? dispW(o) : dispH(o); });
+    var total=0, i;
+    for(i=0;i<sizes.length;i++) total+=sizes[i];
+    total+=gap*Math.max(0, items.length-1);
+    var midX=0, midY=0;
+    items.forEach(function(o){ midX+=o.x; midY+=o.y; });
+    midX/=items.length; midY/=items.length;
+    var cursor=(axis==='x'?midX:midY)-total/2;
+    items.forEach(function(o,j){
+      var half=sizes[j]/2;
+      if(axis==='x'){
+        o.x=clampX(cursor+half);
+        o.y=clampY(midY);
+      } else {
+        o.x=clampX(midX);
+        o.y=clampY(cursor+half);
+      }
+      cursor+=sizes[j]+gap;
+    });
+  }
+
   function applyLayout(id){
     var set=layoutSet();
     if(!set.length) return;
     var n=set.length;
     var cx=W/2, cy=H*0.52;
+    S.layoutPack='';
     var xs=set.map(function(o){ return o.x; });
     var ys=set.map(function(o){ return o.y; });
     var minX=Math.min.apply(null,xs), maxX=Math.max.apply(null,xs);
@@ -2200,16 +2345,13 @@
         set.forEach(function(o){ o.x=cx; o.y=cy; });
         break;
       case 'across':
-        spaceAcross(set);
+        packLine(set, 'x');
+        S.layoutPack='across';
         break;
-      case 'down': {
-        var top=360, bot=H-280, span=bot-top;
-        set.forEach(function(o,i){
-          o.x=clampX(cx);
-          o.y=n===1 ? cy : clampY(top + span*i/Math.max(1,n-1));
-        });
+      case 'down':
+        packLine(set, 'y');
+        S.layoutPack='down';
         break;
-      }
       case 'row':
         set.forEach(function(o){ o.y=clampY(midY); });
         break;
@@ -2295,6 +2437,10 @@
       document.getElementById(out).textContent=fmt(shown===undefined?v:shown);
     });
   }
+  slider('itemGap','vItemGap',function(v){return Math.round(v)+' px';},function(v){
+    S.itemSpacing=v;
+    if(S.layoutPack==='across' || S.layoutPack==='down') applyLayout(S.layoutPack);
+  });
   slider('oscale','vScale',function(v){return Math.round(v)+' px';},function(v){
     targets().forEach(function(o){ o.scale=v/Math.max(o.img.naturalWidth,o.img.naturalHeight); });
     rebuildRuler();          // split canvases are in natural pixels, so scale alone is enough
@@ -2303,7 +2449,8 @@
     targets().forEach(function(o){ o.rot=v*Math.PI/180; });
   });
   slider('omult','vMult',function(v){return v;},function(v){
-    var list=targets().filter(function(o){ return o.cut; });
+    var list=targets();
+    ensureCut(list);
     if(!list.length) return 'not cut';
     if(v===0) v=1;
     document.getElementById('omult').value=v;
@@ -2339,7 +2486,7 @@
   function checkSlot(){
     document.getElementById('slotWarn').hidden = !(S.slotA>0 && S.slotA>=minPieceAlpha()*0.9);
   }
-  slider('loop','vLoop',function(v){return v.toFixed(1)+' s';},function(v){ S.loop=v; rebuildRuler(); });
+  slider('loop','vLoop',function(v){return v.toFixed(1)+' s';},function(v){ S.loop=v; rebuildRuler(); return timelineLoopSeconds(); });
   slider('tol','vTol',function(v){return v+' px';},function(v){ S.tol=v; rebuildRuler(); });
   slider('reps','vReps',function(v){return v;},function(v){ S.reps=v; });
 
@@ -2546,36 +2693,121 @@
           buf.duration>vid+0.2);
   }
 
+  function elevenLabsHeaders(key,json){
+    var h={'xi-api-key':key};
+    if(json) h['Content-Type']='application/json';
+    return h;
+  }
+
+  async function elevenLabsResponse(res){
+    if(res.ok) return res;
+    var text='';
+    try{ text=await res.text(); }catch(e){}
+    throw new Error('ElevenLabs returned '+res.status+'. '+text.slice(0,180));
+  }
+
+  async function loadElevenVoices(key){
+    var controller=new AbortController();
+    var timer=setTimeout(function(){ controller.abort(); },60000);
+    try{
+      var res=await fetch('https://api.elevenlabs.io/v1/voices',{
+        headers:elevenLabsHeaders(key,false),
+        signal:controller.signal
+      });
+      res=await elevenLabsResponse(res);
+      var data=await res.json();
+      return Array.isArray(data.voices)?data.voices:[];
+    }catch(err){
+      if(controller.signal.aborted) throw new Error('ElevenLabs voice request timed out after 60 seconds.');
+      throw err;
+    }finally{
+      clearTimeout(timer);
+    }
+  }
+
+  async function generateElevenSpeech(key,text,voiceId,modelId){
+    var controller=new AbortController();
+    var timer=setTimeout(function(){ controller.abort(); },60000);
+    try{
+      var res=await fetch(
+        'https://api.elevenlabs.io/v1/text-to-speech/'+encodeURIComponent(voiceId)+
+        '?output_format=mp3_44100_128',
+        {
+          method:'POST',
+          headers:elevenLabsHeaders(key,true),
+          body:JSON.stringify({
+            text:text,
+            model_id:modelId||'eleven_multilingual_v2'
+          }),
+          signal:controller.signal
+        }
+      );
+      res=await elevenLabsResponse(res);
+      return res.arrayBuffer();
+    }catch(err){
+      if(controller.signal.aborted) throw new Error('ElevenLabs speech request timed out after 60 seconds.');
+      throw err;
+    }finally{
+      clearTimeout(timer);
+    }
+  }
+
+  function elevenLabsErrorMessage(err){
+    var m=String(err.message||err);
+    if(/Failed to fetch|NetworkError/i.test(m)){
+      return 'Unable to reach ElevenLabs; check the connection, browser CORS policy, or API access. Original error: '+m;
+    }
+    return m;
+  }
+
+  document.getElementById('vgLoadVoices').addEventListener('click',async function(){
+    var key=document.getElementById('vgKey').value.trim();
+    if(!key){ vgSay('An ElevenLabs API key is needed to load voices.',true); return; }
+    var btn=this; btn.disabled=true; vgSay('Loading voices…');
+    try{
+      var voices=await loadElevenVoices(key);
+      var select=document.getElementById('vgVoice');
+      select.textContent='';
+      if(voices.length){
+        voices.forEach(function(voice){
+          var option=document.createElement('option');
+          option.value=voice.voice_id;
+          option.textContent=voice.name;
+          select.appendChild(option);
+        });
+        vgSay('Loaded '+voices.length+' ElevenLabs voice'+(voices.length===1?'':'s')+'.');
+      }else{
+        var fallback=document.createElement('option');
+        fallback.value='21m00Tcm4TlvDq8ikWAM';
+        fallback.textContent='Rachel';
+        select.appendChild(fallback);
+        vgSay('No ElevenLabs voices were returned. Rachel restored.',true);
+      }
+    }catch(err){
+      vgSay(elevenLabsErrorMessage(err),true);
+    }finally{
+      btn.disabled=false;
+    }
+  });
+
   document.getElementById('vgGen').addEventListener('click',async function(){
     var key=document.getElementById('vgKey').value.trim();
     var text=document.getElementById('vgText').value.trim();
+    var voiceId=document.getElementById('vgVoice').value;
+    var modelId=document.getElementById('vgModel').value.trim();
     if(!text){ vgSay('Type the line you want spoken first.',true); return; }
-    if(!key){ vgSay('An OpenAI API key is needed to generate speech.',true); return; }
+    if(!key){ vgSay('An ElevenLabs API key is needed to generate speech.',true); return; }
+    if(!voiceId){ vgSay('Choose an ElevenLabs voice first.',true); return; }
+    if(!modelId){ vgSay('Enter an ElevenLabs model first.',true); return; }
     var btn=this; btn.disabled=true; vgSay('Generating…');
     try{
-      var res=await fetch('https://api.openai.com/v1/audio/speech',{
-        method:'POST',
-        headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
-        body:JSON.stringify({
-          model:document.getElementById('vgModel').value.trim()||'gpt-4o-mini-tts',
-          voice:document.getElementById('vgVoice').value,
-          input:text,
-          response_format:'wav'
-        })
-      });
-      if(!res.ok){
-        var t=await res.text();
-        throw new Error('OpenAI returned '+res.status+'. '+t.slice(0,180));
-      }
-      await loadAudioBytes(await res.arrayBuffer(),'voice.wav','audio/wav');
+      var bytes=await generateElevenSpeech(key,text,voiceId,modelId);
+      await loadAudioBytes(bytes,'elevenlabs-voice.mp3','audio/mpeg');
     }catch(err){
-      var m=String(err.message||err);
-      if(/Failed to fetch|NetworkError/i.test(m)){
-        m='The request was blocked. Opening this file straight from disk (file://) often breaks API calls — serve it over http, or use the audio-file option instead.';
-      }
-      vgSay(m,true);
+      vgSay(elevenLabsErrorMessage(err),true);
+    }finally{
+      btn.disabled=false;
     }
-    btn.disabled=false;
   });
 
   document.getElementById('vgPick').addEventListener('click',function(){ document.getElementById('vgFile').click(); });
@@ -2594,7 +2826,7 @@
 
   document.getElementById('vgFit').addEventListener('click',function(){
     if(!S.audio) return;
-    var need=Math.ceil(S.audio.buffer.duration/S.loop);
+    var need=Math.ceil(S.audio.buffer.duration/timelineLoopSeconds());
     S.reps=Math.max(1,Math.min(8,need));
     document.getElementById('reps').value=S.reps;
     document.getElementById('vReps').textContent=S.reps;
