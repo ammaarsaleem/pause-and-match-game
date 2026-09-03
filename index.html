@@ -57,6 +57,9 @@
   .obj .w.dead{color:var(--hot)}
   .obj .cut{font-family:var(--display);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;padding:4px 7px;border-radius:2px;border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer}
   .obj .cut.on{background:var(--lock);border-color:var(--lock);color:#052622}
+  .obj .lck{background:none;border:1px solid var(--line);border-radius:2px;color:var(--muted);cursor:pointer;font-size:13px;line-height:1;padding:3px 5px}
+  .obj .lck.on{background:var(--warn);border-color:var(--warn);color:#1a1200}
+  .obj .lck:hover{border-color:#37436e}
   .obj .del{background:none;border:0;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;padding:2px 3px}
   .obj .del:hover{color:var(--hot)}
 
@@ -91,6 +94,7 @@
     .check input{width:24px;height:24px}
     .obj{padding:9px 8px}
     .obj .cut{padding:9px 12px;font-size:11px}
+    .obj .lck{font-size:16px;padding:5px 8px}
     .obj .del{font-size:22px;padding:4px 8px}
     .go{padding:16px}
     .ghost{padding:14px}
@@ -103,6 +107,21 @@
   }
   textarea{resize:vertical;line-height:1.5;margin-bottom:8px}
   select{appearance:none;cursor:pointer}
+  .dpad{display:grid;grid-template-columns:repeat(3,32px);grid-template-rows:repeat(3,32px);gap:3px;margin:10px 0 4px}
+  .dpad button{background:var(--panel2);border:1px solid var(--line);border-radius:3px;color:var(--muted);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;padding:0;transition:.1s}
+  .dpad button:hover{color:var(--text);border-color:#37436e}
+  .dpad button:active{background:#1d2b45}
+  .dpad .dpad-gap{pointer-events:none}
+  .nudge-row{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);margin-bottom:2px}
+  .nudge-row span{flex:1}
+  .nudge-steps{display:flex;gap:3px}
+  .nudge-steps button{background:var(--panel2);border:1px solid var(--line);border-radius:2px;color:var(--muted);cursor:pointer;font-family:var(--mono);font-size:10px;padding:3px 6px}
+  .nudge-steps button.on{background:var(--hot);border-color:var(--hot);color:#fff}
+  .nudge-steps button:hover:not(.on){border-color:#37436e;color:var(--text)}
+  @media (pointer:coarse){
+    .dpad{grid-template-columns:repeat(3,40px);grid-template-rows:repeat(3,40px)}
+    .dpad button{font-size:18px}
+  }
   .vgrow{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}
   #vgDur{color:var(--lock)}
   .check{display:flex;align-items:center;gap:9px;margin-top:11px;color:var(--muted);font-size:12.5px;cursor:pointer}
@@ -263,8 +282,29 @@
         <input type="range" id="oscale" min="40" max="8000" step="10" value="340" disabled>
       </div>
       <div class="row">
-        <label>Resting angle <b id="vRot">—</b></label>
+        <label>Resting angle <b id="vRot">—</b><button type="button" id="rotReset" style="margin-left:auto;background:none;border:1px solid var(--line);border-radius:2px;color:var(--muted);cursor:pointer;font-family:var(--display);font-size:9px;letter-spacing:.1em;text-transform:uppercase;padding:2px 6px" title="Reset to 0°">Reset</button></label>
         <input type="range" id="orot" min="-180" max="180" step="1" value="0" disabled>
+      </div>
+      <div class="nudge-row">
+        <span>Nudge</span>
+        <div class="nudge-steps" id="nudgeSteps">
+          <button data-step="1" class="on">1</button>
+          <button data-step="5">5</button>
+          <button data-step="10">10</button>
+          <button data-step="20">20</button>
+        </div>
+        <span style="color:var(--muted);font-size:10px">px</span>
+      </div>
+      <div class="dpad" id="dpad">
+        <div class="dpad-gap"></div>
+        <button data-dir="up" title="Move up">↑</button>
+        <div class="dpad-gap"></div>
+        <button data-dir="left" title="Move left">←</button>
+        <div class="dpad-gap"></div>
+        <button data-dir="right" title="Move right">→</button>
+        <div class="dpad-gap"></div>
+        <button data-dir="down" title="Move down">↓</button>
+        <div class="dpad-gap"></div>
       </div>
       <p class="sub">Arrange</p>
       <div class="chips" id="layoutRow">
@@ -1232,7 +1272,8 @@
       var p=poseFor(o,t), sp=isSplit(o);
 
       // a piece cut out of an object is solid, so it merges with its body when it lands
-      var pa = sp ? 1 : pieceAlpha();
+      // locked items are always fully opaque regardless of the global fade setting
+      var pa = (sp || o.locked) ? 1 : pieceAlpha();
 
       // and its drop shadow fades out as it comes home, or the halo would
       // outline the piece and give the answer away on the solved frame
@@ -1587,6 +1628,7 @@
                     '<div class="nm">'+o.name+'</div>'+badge+
                     '<span class="w" data-i="'+i+'"></span>'+
                     '<button class="cut'+(o.cut?' on':'')+'" data-a="cut">cut</button>'+
+                    '<button class="lck'+(o.locked?' on':'')+'" data-a="lck" title="'+(o.locked?'Unlock item':'Lock item (pin position, solid opacity)')+'">&#x1F512;</button>'+
                     '<button class="del" data-a="del" title="Remove">&times;</button>';
       row.addEventListener('click',function(e){
         if(e.target.classList&&e.target.classList.contains('pick')){
@@ -1602,6 +1644,12 @@
             item.mult = set.length>1 ? 1 : ((cutList().length%2===0)?1:-1);
           });
           S.sel=i; renderList(); syncSel(); syncTravel(); rebuildRuler(); return;
+        }
+        if(b&&b.dataset.a==='lck'){
+          var lset=(o.pick && pickList().length>1) ? pickList() : [o];
+          var lnext=!o.locked;
+          lset.forEach(function(item){ item.locked=lnext; });
+          S.sel=i; renderList(); draw(curT); return;
         }
         if(b&&b.dataset.a==='del'){ removeObj(i); return; }
         S.sel=i; renderList(); syncSel(); paintBadges();
@@ -1700,7 +1748,7 @@
           var o={
             img:im, url:e.target.result, name:f.name.replace(/\.[^.]+$/,'').slice(0,20),
             scale:340/Math.max(im.naturalWidth,im.naturalHeight),
-            rot:0, mult:1, mode:'', sweepAxis:'', cut:(n===0), win:0, pick:false, pv:{x:0,y:0},
+            rot:0, mult:1, mode:'', sweepAxis:'', cut:(n===0), win:0, pick:false, locked:false, pv:{x:0,y:0},
             split:{on:false,shape:'circle',fx:0,fy:0,fs:0.40},
             rawURL:e.target.result, bgOn:false, bgTol:60,
             x:Math.max(120,Math.min(W-120,300+(n%3)*240)),
@@ -1759,10 +1807,10 @@
 
   /* what a canvas gesture acts on: every ticked object, else the highlighted one */
   function gestureSet(){
-    var p=pickList();
+    var p=pickList().filter(function(o){ return !o.locked; });
     if(p.length) return p;
     var o=S.objs[S.sel];
-    return o?[o]:[];
+    return (o&&!o.locked)?[o]:[];
   }
 
   var multiMode=false;
@@ -1862,7 +1910,8 @@
 
     S.sel=found;
     renderList(); syncSel();
-    beginDrag(p, o.pick ? pickList() : [o]);   // grabbing a ticked object moves the whole set
+    var dragSet=(o.pick ? pickList() : [o]).filter(function(it){ return !it.locked; });
+    if(dragSet.length) beginDrag(p, dragSet);  // grabbing a ticked object moves the whole set
   });
 
   view.addEventListener('pointermove',function(e){
@@ -2319,9 +2368,7 @@
       var half=sizes[j]/2;
       if(axis==='x'){
         o.x=clampX(cursor+half);
-        o.y=clampY(midY);
       } else {
-        o.x=clampX(midX);
         o.y=clampY(cursor+half);
       }
       cursor+=sizes[j]+gap;
@@ -2447,6 +2494,33 @@
   });
   slider('orot','vRot',function(v){return Math.round(v)+'°';},function(v){
     targets().forEach(function(o){ o.rot=v*Math.PI/180; });
+  });
+  document.getElementById('rotReset').addEventListener('click',function(){
+    var rt=document.getElementById('orot');
+    rt.value=0;
+    targets().forEach(function(o){ o.rot=0; });
+    document.getElementById('vRot').textContent='0°';
+    motionCache.key=null; rebuildRuler(); draw(curT);
+  });
+
+  var nudgeStep=1;
+  document.getElementById('nudgeSteps').addEventListener('click',function(e){
+    var b=e.target.closest('button'); if(!b) return;
+    nudgeStep=parseInt(b.dataset.step,10);
+    Array.prototype.forEach.call(this.children,function(c){ c.classList.toggle('on',c===b); });
+  });
+  document.getElementById('dpad').addEventListener('click',function(e){
+    var b=e.target.closest('button[data-dir]'); if(!b) return;
+    var dir=b.dataset.dir;
+    var set=targets().filter(function(o){ return !o.locked; });
+    if(!set.length) return;
+    set.forEach(function(o){
+      if(dir==='up')    o.y=clampY(o.y-nudgeStep);
+      if(dir==='down')  o.y=clampY(o.y+nudgeStep);
+      if(dir==='left')  o.x=clampX(o.x-nudgeStep);
+      if(dir==='right') o.x=clampX(o.x+nudgeStep);
+    });
+    motionCache.key=null; rebuildRuler(); draw(curT);
   });
   slider('omult','vMult',function(v){return v;},function(v){
     var list=targets();
