@@ -351,7 +351,7 @@
       </div>
 
       <div id="cutPane">
-        <p class="sub">Its motion</p>
+        <p class="sub" id="cutPaneHead">Its motion</p>
         <div class="seg" id="omodeSeg"></div>
         <div class="row" id="rowOSweep">
           <label style="margin-bottom:6px">Its sweep direction</label>
@@ -1157,7 +1157,17 @@
   function isSplit(o){ return activeSplits(o).length>0; }
   function cutSrc(sp){ return S.style==='flat' ? sp.cutFlat : sp.cutTrue; }
   function remSrc(o){ return S.style==='flat' ? o.remFlat : o.remTrue; }
-  function forSplit(o,sp){ var p=Object.create(o); p.splits=sp?[sp]:[]; return p; }
+  function forSplit(o,sp){
+    var p=Object.create(o);
+    p.splits=sp?[sp]:[];
+    if(sp){
+      if(sp.mult!==undefined) p.mult=sp.mult;
+      if(sp.mode!==undefined) p.mode=sp.mode;
+      if(sp.sweepAxis!==undefined) p.sweepAxis=sp.sweepAxis;
+      if(sp.pv) p.pv=sp.pv;
+    }
+    return p;
+  }
   function poseForSplit(o,sp,t){ return poseFor(forSplit(o,sp),t); }
   function errForSplit(o,sp,t){ return errFor(forSplit(o,sp),t); }
 
@@ -1787,9 +1797,13 @@
   function syncSel(){
     // ticked rows drive the panel even when no single row is highlighted
     var o=S.objs[S.sel]||targets()[0];
+    var sp=(o&&S.selSplit>=0)?o.splits[S.selSplit]:null; // selected split, if any
     var sc=document.getElementById('oscale'), rt=document.getElementById('orot'), ml=document.getElementById('omult');
-    sc.disabled=!o; rt.disabled=!o; ml.disabled=!o||!o.cut||modeOf(o)==='centerRun';
+    sc.disabled=!o; rt.disabled=!o;
+    var mt=sp||o; // motion target: split takes priority
+    ml.disabled=!o||!o.cut||modeOf(mt)==='centerRun';
     document.getElementById('cutPane').style.opacity=(o&&o.cut)?'1':'0.42';
+    document.getElementById('cutPaneHead').textContent=sp?'Cut piece motion':'Its motion';
     if(!o){
       document.getElementById('vScale').textContent='—';
       document.getElementById('vRot').textContent='—';
@@ -1805,19 +1819,20 @@
     }
     sc.value=Math.round(longSide(o));
     rt.value=Math.round(o.rot*180/Math.PI);
-    ml.value=o.mult;
+    ml.value=mt.mult!==undefined?mt.mult:o.mult;
     document.getElementById('vScale').textContent=Math.round(longSide(o))+' px';
     document.getElementById('vRot').textContent=Math.round(o.rot*180/Math.PI)+'°';
-    document.getElementById('vMult').textContent=!o.cut?'not cut':(modeOf(o)==='centerRun'?((S.sceneDir||1)<0?'scene left':'scene right'):((o.mult<0?'reverse ':'')+Math.abs(o.mult)+'×'));
+    var mtMult=mt.mult!==undefined?mt.mult:o.mult;
+    document.getElementById('vMult').textContent=!o.cut?'not cut':(modeOf(mt)==='centerRun'?((S.sceneDir||1)<0?'scene left':'scene right'):((mtMult<0?'reverse ':'')+Math.abs(mtMult)+'×'));
     Array.prototype.forEach.call(document.getElementById('omodeSeg').children,function(c){
-      c.setAttribute('aria-pressed',String((c.dataset.omode||'')===(o.mode||'')));
+      c.setAttribute('aria-pressed',String((c.dataset.omode||'')===(mt.mode||'')));
     });
     Array.prototype.forEach.call(document.getElementById('osweepSeg').children,function(c){
-      c.setAttribute('aria-pressed',String((c.dataset.osweep||'')===(o.sweepAxis||'')));
+      c.setAttribute('aria-pressed',String((c.dataset.osweep||'')===(mt.sweepAxis||'')));
     });
-    document.getElementById('rowOSweep').classList.toggle('off', !usesAxis(modeOf(o)));
+    document.getElementById('rowOSweep').classList.toggle('off', !usesAxis(modeOf(mt)));
 
-    var pv=o.pv||{x:0,y:0};
+    var pv=(mt.pv)||{x:0,y:0};
     var pvxEl=document.getElementById('pvX'), pvyEl=document.getElementById('pvY');
     pvxEl.disabled=!o.cut; pvyEl.disabled=!o.cut;
     pvxEl.value=Math.round(pv.x*100); pvyEl.value=Math.round(pv.y*100);
@@ -2083,13 +2098,21 @@
   document.getElementById('osweepSeg').addEventListener('click',function(e){
     var b=e.target.closest('button'); if(!b) return;
     var val=b.dataset.osweep||'';
-    var list=targets();
-    var cutChanged=ensureCut(list);
-    unifyGroupDir(list);
-    list.forEach(function(o){ o.sweepAxis=val; });
-    Array.prototype.forEach.call(this.children,function(c){ c.setAttribute('aria-pressed',String(c===b)); });
-    if(cutChanged){ renderList(); syncSel(); }
-    syncTravel(); rebuildRuler();
+    var o=S.objs[S.sel];
+    var sp=(o&&S.selSplit>=0)?o.splits[S.selSplit]:null;
+    if(sp){
+      sp.sweepAxis=val;
+      Array.prototype.forEach.call(this.children,function(c){ c.setAttribute('aria-pressed',String(c===b)); });
+      rebuildRuler();
+    } else {
+      var list=targets();
+      var cutChanged=ensureCut(list);
+      unifyGroupDir(list);
+      list.forEach(function(o){ o.sweepAxis=val; });
+      Array.prototype.forEach.call(this.children,function(c){ c.setAttribute('aria-pressed',String(c===b)); });
+      if(cutChanged){ renderList(); syncSel(); }
+      syncTravel(); rebuildRuler();
+    }
   });
 
   seg('bgSeg','bg',refreshSils);
@@ -2147,7 +2170,7 @@
 
   document.getElementById('addSplit').addEventListener('click',function(){
     var o=S.objs[S.sel]; if(!o) return;
-    var sp={on:true,shape:'circle',fs:0.40,fx:0,fy:0,cut:true,win:0,cutTrue:null,cutFlat:null,splitSize:0,splitR:0,cueTrue:0,cueFlat:0};
+    var sp={on:true,shape:'circle',fs:0.40,fx:0,fy:0,cut:true,win:0,mult:1,mode:'',sweepAxis:'',pv:{x:0,y:0},cutTrue:null,cutFlat:null,splitSize:0,splitR:0,cueTrue:0,cueFlat:0};
     o.splits.push(sp);
     if(!o.cut) o.cut=true;
     S.selSplit=o.splits.length-1;
@@ -2181,12 +2204,21 @@
     var el=document.getElementById(id);
     el.addEventListener('input',function(){
       var v=parseFloat(el.value);
-      var list=targets();
-      var cutChanged=ensureCut(list);
-      list.forEach(function(o){ if(!o.pv) o.pv={x:0,y:0}; o.pv[axis]=v/100; });
-      document.getElementById(out).textContent=pivotLabel(S.objs[S.sel]||targets()[0],v);
-      if(cutChanged){ renderList(); syncSel(); }
-      rebuildRuler();
+      var o=S.objs[S.sel];
+      var sp=(o&&S.selSplit>=0)?o.splits[S.selSplit]:null;
+      if(sp){
+        if(!sp.pv) sp.pv={x:0,y:0};
+        sp.pv[axis]=v/100;
+        document.getElementById(out).textContent=pivotLabel(o,v);
+        rebuildRuler();
+      } else {
+        var list=targets();
+        var cutChanged=ensureCut(list);
+        list.forEach(function(o){ if(!o.pv) o.pv={x:0,y:0}; o.pv[axis]=v/100; });
+        document.getElementById(out).textContent=pivotLabel(S.objs[S.sel]||targets()[0],v);
+        if(cutChanged){ renderList(); syncSel(); }
+        rebuildRuler();
+      }
     });
   }
   pivotSlider('pvX','vPvX','x');
@@ -2198,13 +2230,21 @@
 
   document.getElementById('omodeSeg').addEventListener('click',function(e){
     var b=e.target.closest('button'); if(!b) return;
-    var list=targets();
-    ensureCut(list);
-    list.forEach(function(o){ o.mode=b.dataset.omode||''; });
-    var mid=b.dataset.omode||'';
-    if(usesAxis(mid) || mid==='bounce') unifyGroupDir(list);
-    Array.prototype.forEach.call(this.children,function(c){ c.setAttribute('aria-pressed',String(c===b)); });
-    renderList(); syncSel(); syncTravel(); rebuildRuler();
+    var mode=b.dataset.omode||'';
+    var o=S.objs[S.sel];
+    var sp=(o&&S.selSplit>=0)?o.splits[S.selSplit]:null;
+    if(sp){
+      sp.mode=mode;
+      Array.prototype.forEach.call(this.children,function(c){ c.setAttribute('aria-pressed',String(c===b)); });
+      syncSel(); rebuildRuler();
+    } else {
+      var list=targets();
+      ensureCut(list);
+      list.forEach(function(o){ o.mode=mode; });
+      if(usesAxis(mode) || mode==='bounce') unifyGroupDir(list);
+      Array.prototype.forEach.call(this.children,function(c){ c.setAttribute('aria-pressed',String(c===b)); });
+      renderList(); syncSel(); syncTravel(); rebuildRuler();
+    }
   });
 
   function usesAxis(m){
@@ -2624,11 +2664,18 @@
     motionCache.key=null; rebuildRuler(); draw(curT);
   });
   slider('omult','vMult',function(v){return v;},function(v){
+    if(v===0) v=1;
+    document.getElementById('omult').value=v;
+    var o=S.objs[S.sel];
+    var sp=(o&&S.selSplit>=0)?o.splits[S.selSplit]:null;
+    if(sp){
+      sp.mult=v;
+      rebuildRuler();
+      return (v<0?'reverse ':'')+Math.abs(v)+'×';
+    }
     var list=targets();
     ensureCut(list);
     if(!list.length) return 'not cut';
-    if(v===0) v=1;
-    document.getElementById('omult').value=v;
     list.forEach(function(o){ o.mult=v; o.multTouched=true; });
     renderList(); rebuildRuler();
     return (v<0?'reverse ':'')+Math.abs(v)+'×';
