@@ -424,7 +424,7 @@
       <label class="check" style="margin-top:0"><input type="checkbox" id="bgRemove" disabled> Remove its background</label>
       <p class="note" id="bgHint" hidden>This image has no transparency, so it probably still has a background. Tick the box above to strip it.</p>
       <p class="note" id="bgStatus" hidden></p>
-      <p class="note">Uses an on-device AI model (~80 MB). It downloads once, then this device reuses the saved copy.</p>
+      <p class="note">Uses an on-device AI model. It downloads once, then this device reuses the saved copy. iPhone and iPad use a smaller model so Safari does not run out of memory.</p>
 
       <p class="sub">Placement</p>
       <div class="row" style="margin-top:0">
@@ -853,23 +853,92 @@
 
   /* ---------- background removal (@imgly/background-removal) ---------- */
   var IMGLY_PUBLIC='https://staticimgly.com/@imgly/background-removal-data/1.7.0/dist/';
-  var imglyBgConfig={
-    publicPath:IMGLY_PUBLIC,
-    model:'medium',
-    /* WebGPU often reports as available but yields a fully transparent mask,
-       which shows up as a white image on the white canvas. CPU is the library default. */
-    device:'cpu',
-    output:{format:'image/png',quality:1},
-    progress:function(key,current,total){
-      if(!total) return;
-      var pct=Math.min(100,Math.round(current/total*100));
-      if(String(key).indexOf('fetch:')===0){
-        setBgStatus((window.__imglyDidNetwork?'Downloading model once… ':'Loading saved model… ')+pct+'%');
-      } else {
-        setBgStatus('Removing background…');
-      }
+
+  function appleTouchDevice(){
+    var ua=navigator.userAgent||'';
+    return /iPad|iPhone|iPod/.test(ua) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+  }
+  function useSmallBgModel(){
+    if(appleTouchDevice()) return true;
+    if(typeof navigator.deviceMemory==='number' && navigator.deviceMemory<=4) return true;
+    return false;
+  }
+  function bgOomError(err){
+    var m=String(err&&err.message||err||'');
+    return /out of memory|no available backend/i.test(m);
+  }
+  function friendlyBgError(err){
+    if(bgOomError(err)){
+      return 'This device ran out of memory loading the background model. Close other tabs, use a smaller photo, then tick the box again.';
     }
-  };
+    return (err&&err.message)||String(err)||'Background removal failed.';
+  }
+  function makeBgConfig(device,model){
+    return {
+      publicPath:IMGLY_PUBLIC,
+      model:model,
+      device:device,
+      output:{format:'image/png',quality:1},
+      progress:function(key,current,total){
+        if(!total) return;
+        var pct=Math.min(100,Math.round(current/total*100));
+        if(String(key).indexOf('fetch:')===0){
+          setBgStatus((window.__imglyDidNetwork?'Downloading model once… ':'Loading saved model… ')+pct+'%');
+        } else {
+          setBgStatus('Removing background…');
+        }
+      }
+    };
+  }
+  function prepareBgInput(srcUrl,maxSide){
+    return new Promise(function(resolve,reject){
+      var img=new Image();
+      img.onload=function(){
+        var w=img.naturalWidth, h=img.naturalHeight;
+        var s=Math.min(1, maxSide/Math.max(w,h));
+        var c=document.createElement('canvas');
+        c.width=Math.max(1,Math.round(w*s));
+        c.height=Math.max(1,Math.round(h*s));
+        var g=c.getContext('2d');
+        g.drawImage(img,0,0,c.width,c.height);
+        c.toBlob(function(blob){
+          if(!blob) reject(new Error('Could not prepare the image.'));
+          else resolve(blob);
+        },'image/png');
+      };
+      img.onerror=function(){ reject(new Error('Could not read the image.')); };
+      img.src=srcUrl;
+    });
+  }
+  function bgMaskEmpty(blob){
+    return createImageBitmap(blob).then(function(bmp){
+      var w=Math.min(48,bmp.width), h=Math.min(48,bmp.height);
+      var c=document.createElement('canvas'); c.width=w; c.height=h;
+      var g=c.getContext('2d'); g.drawImage(bmp,0,0,w,h);
+      var d=g.getImageData(0,0,w,h).data, solid=0, i;
+      for(i=3;i<d.length;i+=4) if(d[i]>24) solid++;
+      return solid<4;
+    });
+  }
+  function removeBgWithFallback(api,input,model,devices,i){
+    if(i>=devices.length) return Promise.reject(new Error('Background removal failed.'));
+    return api.removeBackground(input, makeBgConfig(devices[i], model)).then(function(blob){
+      return bgMaskEmpty(blob).then(function(empty){
+        if(empty && i+1<devices.length){
+          setBgStatus('Retrying with a lower-memory mode…');
+          return removeBgWithFallback(api,input,model,devices,i+1);
+        }
+        if(empty) return Promise.reject(new Error('Background removal returned an empty image.'));
+        return blob;
+      });
+    }).catch(function(err){
+      if(i+1<devices.length){
+        setBgStatus('Retrying with a lower-memory mode…');
+        return removeBgWithFallback(api,input,model,devices,i+1);
+      }
+      return Promise.reject(err);
+    });
+  }
 
   function setBgStatus(msg,isErr){
     var el=document.getElementById('bgStatus');
@@ -885,6 +954,13 @@
       if(o.bgGen!==gen || S.objs.indexOf(o)<0){
         if(url.indexOf('blob:')===0) URL.revokeObjectURL(url);
         return;
+      }
+      var prev=o.img;
+      if(prev && prev.naturalWidth && out.naturalWidth &&
+         (out.naturalWidth!==prev.naturalWidth || out.naturalHeight!==prev.naturalHeight)){
+        var oldLong=Math.max(prev.naturalWidth, prev.naturalHeight);
+        var newLong=Math.max(out.naturalWidth, out.naturalHeight);
+        if(newLong) o.scale*=oldLong/newLong;
       }
       if(o.bgObjectURL && o.bgObjectURL!==url) URL.revokeObjectURL(o.bgObjectURL);
       o.bgObjectURL=(url.indexOf('blob:')===0)?url:'';
@@ -923,11 +999,18 @@
     }
 
     window.__imglyDidNetwork=false;
-    setBgStatus('Loading background remover…');
+    var small=useSmallBgModel();
+    var model=small?'small':'medium';
+    var maxSide=appleTouchDevice()?1024:2048;
+    var devices=(appleTouchDevice() && navigator.gpu)?['gpu','cpu']:['cpu'];
+    setBgStatus(small?'Loading a smaller on-device model…':'Loading background remover…');
     window.__imglyReady.then(function(api){
       if(!stillCurrent()) return;
-      return api.removeBackground(o.rawURL,imglyBgConfig).then(function(blob){
+      return prepareBgInput(o.rawURL,maxSide).then(function(blob){
         if(!stillCurrent()) return;
+        return removeBgWithFallback(api,blob,model,devices,0);
+      }).then(function(blob){
+        if(!stillCurrent() || !blob) return;
         finishBgImage(o,URL.createObjectURL(blob),after,gen);
         setBgStatus(window.__imglyDidNetwork
           ? 'Background removed. The model is saved on this device for next time.'
@@ -936,7 +1019,7 @@
     }).catch(function(err){
       if(!stillCurrent()) return;
       o.bgOn=false;
-      setBgStatus((err&&err.message)||String(err)||'Background removal failed.',true);
+      setBgStatus(friendlyBgError(err),true);
       syncSel();
     });
   }
