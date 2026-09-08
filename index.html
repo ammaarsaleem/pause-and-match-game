@@ -6,7 +6,134 @@
 <title>Silhouette Pause Studio</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preconnect" href="https://staticimgly.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script type="importmap">
+{
+  "imports": {
+    "onnxruntime-web": "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.21.0/dist/ort.bundle.min.mjs",
+    "onnxruntime-web/webgpu": "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.21.0/dist/ort.webgpu.bundle.min.mjs"
+  }
+}
+</script>
+<script>
+(function(){
+  var CACHE='imgly-bg-removal-1.7.0';
+  var PREFIX='https://staticimgly.com/@imgly/background-removal-data/';
+  var origFetch=window.fetch.bind(window);
+  var mem=Object.create(null);
+  var inflight=Object.create(null);
+  function urlOf(input){
+    try{
+      if(typeof input==='string') return input;
+      if(input instanceof URL) return String(input);
+      if(input&&typeof input.url==='string') return input.url;
+    }catch(e){}
+    return '';
+  }
+  function isModel(u){ return u.indexOf(PREFIX)!==-1; }
+  var dbPromise=null;
+  function idbOpen(){
+    if(dbPromise) return dbPromise;
+    dbPromise=new Promise(function(resolve,reject){
+      var req=indexedDB.open(CACHE,1);
+      req.onupgradeneeded=function(){ req.result.createObjectStore('files'); };
+      req.onsuccess=function(){ resolve(req.result); };
+      req.onerror=function(){ dbPromise=null; reject(req.error); };
+    });
+    return dbPromise;
+  }
+  function idbGet(url){
+    return idbOpen().then(function(db){
+      return new Promise(function(resolve,reject){
+        var q=db.transaction('files','readonly').objectStore('files').get(url);
+        q.onsuccess=function(){ resolve(q.result||null); };
+        q.onerror=function(){ reject(q.error); };
+      });
+    }).catch(function(){ return null; });
+  }
+  function idbPut(url,rec){
+    return idbOpen().then(function(db){
+      return new Promise(function(resolve,reject){
+        var q=db.transaction('files','readwrite').objectStore('files').put(rec,url);
+        q.onsuccess=function(){ resolve(); };
+        q.onerror=function(){ reject(q.error); };
+      });
+    }).catch(function(){});
+  }
+  function fromStores(url){
+    if(mem[url]) return Promise.resolve(mem[url]);
+    return Promise.resolve().then(function(){
+      if(!window.caches) return null;
+      return caches.open(CACHE).then(function(cache){ return cache.match(url); }).then(function(hit){
+        if(!hit) return null;
+        return hit.blob().then(function(blob){
+          var rec={blob:blob,type:hit.headers.get('Content-Type')||blob.type||'application/octet-stream'};
+          mem[url]=rec;
+          return rec;
+        });
+      });
+    }).catch(function(){ return null; }).then(function(rec){
+      if(rec) return rec;
+      return idbGet(url).then(function(stored){
+        if(stored&&stored.blob){ mem[url]=stored; return stored; }
+        return null;
+      });
+    });
+  }
+  function toStores(url,blob,type){
+    var rec={blob:blob,type:type};
+    mem[url]=rec;
+    var putCache=(!window.caches)?Promise.resolve():caches.open(CACHE).then(function(cache){
+      return cache.put(url,new Response(blob,{headers:{'Content-Type':type,'Cache-Control':'public,max-age=31536000,immutable'}}));
+    }).catch(function(){});
+    return Promise.all([putCache,idbPut(url,rec)]);
+  }
+  window.fetch=function(input,init){
+    var url=urlOf(input);
+    if(!isModel(url)) return origFetch(input,init);
+    function asResponse(rec){
+      return new Response(rec.blob.slice(),{status:200,headers:{'Content-Type':rec.type}});
+    }
+    if(inflight[url]) return inflight[url].then(asResponse);
+    inflight[url]=fromStores(url).then(function(cached){
+      if(cached){ window.__imglyLastFetchCached=true; return cached; }
+      return origFetch(input,init).then(function(res){
+        if(!res.ok) throw new Error('Model download failed ('+res.status+')');
+        var type=res.headers.get('Content-Type')||'application/octet-stream';
+        return res.blob().then(function(blob){
+          window.__imglyDidNetwork=true;
+          window.__imglyLastFetchCached=false;
+          return toStores(url,blob,type).then(function(){ return mem[url]; });
+        });
+      });
+    });
+    return inflight[url].then(function(rec){
+      delete inflight[url];
+      return asResponse(rec);
+    },function(err){
+      delete inflight[url];
+      throw err;
+    });
+  };
+  window.__imglyHasCachedModel=function(){
+    return fromStores(PREFIX+'1.7.0/dist/resources.json').then(function(rec){ return !!rec; });
+  };
+  window.__imglyReady=new Promise(function(resolve,reject){
+    window.__resolveImgly=resolve;
+    window.__rejectImgly=reject;
+  });
+})();
+</script>
+<script type="module">
+  try {
+    const { removeBackground, preload } = await import('https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/dist/index.mjs');
+    window.__resolveImgly({ removeBackground, preload });
+  } catch (err) {
+    window.__rejectImgly(err);
+  }
+</script>
 <style>
   :root{
     --ink:#0b1020; --panel:#151c33; --panel2:#1b2440; --line:#26304f;
@@ -172,6 +299,7 @@
   .note b{color:#b9c1dd;font-weight:600}
   .note.warn{color:var(--warn)}
   .note.warn[hidden]{display:none}
+  #bgStatus[hidden]{display:none}
 
   .stage{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;overflow:auto;min-width:0}
   .ctools{display:flex;align-items:center;gap:10px;width:min(580px,100%)}
@@ -294,12 +422,9 @@
     <div class="group" id="selGroup">
       <h2 id="selHead">Selected object</h2>
       <label class="check" style="margin-top:0"><input type="checkbox" id="bgRemove" disabled> Remove its background</label>
-      <div class="row">
-        <label>Removal strength <b id="vBgTol">60</b></label>
-        <input type="range" id="bgTol" min="10" max="200" step="5" value="60" disabled>
-      </div>
       <p class="note" id="bgHint" hidden>This image has no transparency, so it probably still has a background. Tick the box above to strip it.</p>
-      <p class="note">Fills inward from the edges, so white <i>inside</i> the object is kept. Raise the strength if a fringe survives, lower it if the object gets eaten.</p>
+      <p class="note" id="bgStatus" hidden></p>
+      <p class="note">Uses an on-device AI model (~80 MB). It downloads once, then this device reuses the saved copy.</p>
 
       <p class="sub">Placement</p>
       <div class="row" style="margin-top:0">
@@ -726,73 +851,94 @@
     return m;
   }
 
-  /* ---------- background removal ---------- */
-  /* Flood fills inward from the borders instead of thresholding brightness, so
-     white enclosed by the object (a mug's highlight, a donut hole) is kept. */
-  function removeBackground(data,w,h,tol){
-    var corners=[[0,0],[w-1,0],[0,h-1],[w-1,h-1]], br=0,bgc=0,bb=0,k;
-    for(k=0;k<4;k++){
-      var ci=(corners[k][1]*w+corners[k][0])*4;
-      br+=data[ci]; bgc+=data[ci+1]; bb+=data[ci+2];
-    }
-    br/=4; bgc/=4; bb/=4;
-    function dist(i){
-      var dr=data[i]-br, dg=data[i+1]-bgc, db=data[i+2]-bb;
-      return Math.sqrt(dr*dr+dg*dg+db*db);
-    }
-    var mask=new Uint8Array(w*h), stack=new Int32Array(w*h), sp=0;
-    function push(p){
-      if(!mask[p] && data[p*4+3]>0 && dist(p*4)<=tol){ mask[p]=1; stack[sp++]=p; }
-    }
-    var x,y,p;
-    for(x=0;x<w;x++){ push(x); push((h-1)*w+x); }
-    for(y=0;y<h;y++){ push(y*w); push(y*w+w-1); }
-    while(sp>0){
-      p=stack[--sp]; x=p%w; y=(p-x)/w;
-      if(x>0) push(p-1);
-      if(x<w-1) push(p+1);
-      if(y>0) push(p-w);
-      if(y<h-1) push(p+w);
-    }
-    var soft=Math.max(1,tol*0.9);
-    for(p=0;p<w*h;p++){
-      var i=p*4;
-      if(mask[p]){ data[i+3]=0; continue; }
-      x=p%w; y=(p-x)/w;
-      var touch=(x>0&&mask[p-1])||(x<w-1&&mask[p+1])||(y>0&&mask[p-w])||(y<h-1&&mask[p+w]);
-      if(touch){
-        var a=Math.max(0,Math.min(1,(dist(i)-tol)/soft));   // soften the cut edge
-        data[i+3]=Math.round(data[i+3]*a);
+  /* ---------- background removal (@imgly/background-removal) ---------- */
+  var IMGLY_PUBLIC='https://staticimgly.com/@imgly/background-removal-data/1.7.0/dist/';
+  var imglyBgConfig={
+    publicPath:IMGLY_PUBLIC,
+    model:'medium',
+    /* WebGPU often reports as available but yields a fully transparent mask,
+       which shows up as a white image on the white canvas. CPU is the library default. */
+    device:'cpu',
+    output:{format:'image/png',quality:1},
+    progress:function(key,current,total){
+      if(!total) return;
+      var pct=Math.min(100,Math.round(current/total*100));
+      if(String(key).indexOf('fetch:')===0){
+        setBgStatus((window.__imglyDidNetwork?'Downloading model once… ':'Loading saved model… ')+pct+'%');
+      } else {
+        setBgStatus('Removing background…');
       }
     }
+  };
+
+  function setBgStatus(msg,isErr){
+    var el=document.getElementById('bgStatus');
+    if(!el) return;
+    el.hidden=!msg;
+    el.textContent=msg||'';
+    el.classList.toggle('warn',!!isErr);
+  }
+
+  function finishBgImage(o,url,after,gen){
+    var out=new Image();
+    out.onload=function(){
+      if(o.bgGen!==gen || S.objs.indexOf(o)<0){
+        if(url.indexOf('blob:')===0) URL.revokeObjectURL(url);
+        return;
+      }
+      if(o.bgObjectURL && o.bgObjectURL!==url) URL.revokeObjectURL(o.bgObjectURL);
+      o.bgObjectURL=(url.indexOf('blob:')===0)?url:'';
+      o.img=out; o.url=url;
+      o.alpha=alphaMap(out);
+      o.sil=makeSil(out,inkColor());
+      buildSplits(o);
+      renderList(); syncSel(); rebuildRuler(); checkSpin();
+      if(after) after();
+    };
+    out.onerror=function(){
+      if(url.indexOf('blob:')===0) URL.revokeObjectURL(url);
+      setBgStatus('Could not load the processed image.',true);
+    };
+    out.src=url;
   }
 
   /* rebuild every derived bitmap for one object from its untouched original */
   function applyBg(o,after){
-    var src=new Image();
-    src.onload=function(){
-      var c=document.createElement('canvas');
-      c.width=src.naturalWidth; c.height=src.naturalHeight;
-      var g=c.getContext('2d');
-      g.drawImage(src,0,0);
-      if(o.bgOn){
-        var id=g.getImageData(0,0,c.width,c.height);
-        removeBackground(id.data,c.width,c.height,o.bgTol);
-        g.putImageData(id,0,0);
-      }
-      var url=c.toDataURL('image/png');
-      var out=new Image();
-      out.onload=function(){
-        o.img=out; o.url=url;
-        o.alpha=alphaMap(out);
-        o.sil=makeSil(out,inkColor());
-        buildSplits(o);
-        renderList(); syncSel(); rebuildRuler(); checkSpin();
-        if(after) after();
+    var gen=(o.bgGen=(o.bgGen||0)+1);
+    function stillCurrent(){ return o.bgGen===gen && S.objs.indexOf(o)>=0; }
+
+    if(!o.bgOn){
+      setBgStatus('');
+      var src=new Image();
+      src.onload=function(){
+        if(!stillCurrent()) return;
+        var c=document.createElement('canvas');
+        c.width=src.naturalWidth; c.height=src.naturalHeight;
+        var g=c.getContext('2d');
+        g.drawImage(src,0,0);
+        finishBgImage(o,c.toDataURL('image/png'),after,gen);
       };
-      out.src=url;
-    };
-    src.src=o.rawURL;
+      src.src=o.rawURL;
+      return;
+    }
+
+    window.__imglyDidNetwork=false;
+    setBgStatus('Loading background remover…');
+    window.__imglyReady.then(function(api){
+      if(!stillCurrent()) return;
+      return api.removeBackground(o.rawURL,imglyBgConfig).then(function(blob){
+        if(!stillCurrent()) return;
+        finishBgImage(o,URL.createObjectURL(blob),after,gen);
+        setBgStatus(window.__imglyDidNetwork
+          ? 'Background removed. The model is saved on this device for next time.'
+          : 'Background removed from the saved on-device model.');
+      });
+    }).catch(function(err){
+      if(!stillCurrent()) return;
+      o.bgOn=false;
+      setBgStatus((err&&err.message)||String(err)||'Background removal failed.',true);
+      syncSel();
+    });
   }
 
   /* ---------- alpha map: click testing + true swing radius ---------- */
@@ -1877,7 +2023,6 @@
       document.getElementById('vRot').textContent='—';
       document.getElementById('vMult').textContent='—';
       var b0=document.getElementById('bgRemove'); b0.checked=false; b0.disabled=true;
-      document.getElementById('bgTol').disabled=true;
       document.getElementById('bgHint').hidden=true;
       document.getElementById('addSplit').disabled=true;
       document.getElementById('splitList').innerHTML='';
@@ -1910,9 +2055,6 @@
 
     var bgc=document.getElementById('bgRemove');
     bgc.disabled=false; bgc.checked=!!o.bgOn;
-    var bgt=document.getElementById('bgTol');
-    bgt.disabled=!o.bgOn; bgt.value=o.bgTol;
-    document.getElementById('vBgTol').textContent=o.bgTol;
     document.getElementById('bgHint').hidden = !(!o.bgOn && o.alpha && o.alpha.opaque>0.985);
 
     document.getElementById('addSplit').disabled=false;
@@ -2235,23 +2377,11 @@
     paintModeUI(); rebuildRuler();
   });
 
-  var bgTimer=null;
   document.getElementById('bgRemove').addEventListener('change',function(){
     if(selFrozen()){ this.checked=!!(S.objs[S.sel]&&S.objs[S.sel].bgOn); return; }
     var list=targets(); if(!list.length){ this.checked=false; return; }
     var on=this.checked;
-    document.getElementById('bgTol').disabled=!on;
     list.forEach(function(o){ o.bgOn=on; applyBg(o); });
-  });
-  document.getElementById('bgTol').addEventListener('input',function(){
-    if(selFrozen()) return;
-    var v=parseFloat(this.value);
-    document.getElementById('vBgTol').textContent=v;
-    var list=targets().filter(function(o){ return o.bgOn; });
-    if(!list.length) return;
-    list.forEach(function(o){ o.bgTol=v; });
-    if(bgTimer) clearTimeout(bgTimer);
-    bgTimer=setTimeout(function(){ list.forEach(function(o){ applyBg(o); }); },180);
   });
 
   document.getElementById('addSplit').addEventListener('click',function(){
