@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>Silhouette Pause Studio</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,7 +16,7 @@
     --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
   }
   *{box-sizing:border-box}
-  html,body{margin:0;height:100%}
+  html,body{margin:0;height:100%;touch-action:manipulation}
   body{background:var(--ink);color:var(--text);font-family:var(--body);font-size:14px;-webkit-font-smoothing:antialiased}
   button,input,select{font-family:inherit;color:inherit}
   .app{display:flex;height:100vh;overflow:hidden}
@@ -28,6 +28,16 @@
 
   .group{border-bottom:1px solid var(--line);padding:18px 20px}
   .group:last-child{border-bottom:0}
+  .group.item-locked{opacity:.48}
+  .group.item-locked input,
+  .group.item-locked button{cursor:not-allowed}
+  .group.item-locked .splitlist{pointer-events:none}
+  .seg button:disabled,
+  .chips button:disabled,
+  .dpad button:disabled{opacity:.55;cursor:not-allowed}
+  .seg button:disabled:hover,
+  .chips button:disabled:hover,
+  .dpad button:disabled:hover{color:var(--muted);border-color:var(--line)}
   .group > h2{font-family:var(--display);font-weight:500;font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin:0 0 13px;display:flex;justify-content:space-between;align-items:baseline}
   .group > h2 span{font-family:var(--mono);font-size:11px;letter-spacing:0;color:var(--lock);text-transform:none}
 
@@ -43,10 +53,12 @@
     cursor:pointer;padding:7px 12px;font-family:var(--display);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
   .pickbar button:hover{color:var(--text);border-color:var(--lock)}
   .obj .pick{accent-color:var(--lock);width:20px;height:20px;flex:0 0 auto;cursor:pointer;margin:0}
+  .obj .pick:disabled{opacity:.4;cursor:not-allowed}
   .obj.picked{background:#1d2b45;border-color:#2f6e6a}
   @media (pointer:coarse){ .obj .pick{width:26px;height:26px} }
   .obj{display:flex;align-items:center;gap:7px;padding:6px 8px;border:1px solid var(--line);border-radius:3px;background:var(--panel2);cursor:pointer}
   .obj:hover{border-color:#37436e}
+  .obj.lckd{cursor:default}
   .obj.sel{border-color:var(--hot)}
   .obj .thumb{width:30px;height:30px;flex:0 0 30px;border-radius:2px;background:#fff center/contain no-repeat;border:1px solid var(--line)}
   .obj .nm{flex:1;min-width:0;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
@@ -60,6 +72,12 @@
   .obj .lck{background:none;border:1px solid var(--line);border-radius:2px;color:var(--muted);cursor:pointer;font-size:13px;line-height:1;padding:3px 5px}
   .obj .lck.on{background:var(--warn);border-color:var(--warn);color:#1a1200}
   .obj .lck:hover{border-color:#37436e}
+  .obj .vis{background:none;border:1px solid var(--line);border-radius:2px;color:var(--muted);cursor:pointer;font-size:13px;line-height:1;padding:3px 5px}
+  .obj .vis.off{color:var(--hot);border-color:var(--hot)}
+  .obj .vis:hover{border-color:#37436e}
+  .obj.hid{opacity:.42}
+  .obj.hid .thumb{opacity:.55}
+  .obj.hid .nm{text-decoration:line-through}
   .splitlist{margin:8px 0 6px;display:flex;flex-direction:column;gap:4px}
   .splitrow{display:flex;align-items:center;gap:6px;padding:5px 7px;border:1px solid var(--line);border-radius:3px;background:var(--panel2);cursor:pointer;font-size:11.5px}
   .splitrow.sel{border-color:var(--hot)}
@@ -105,6 +123,7 @@
     .obj{padding:9px 8px}
     .obj .cut{padding:9px 12px;font-size:11px}
     .obj .lck{font-size:16px;padding:5px 8px}
+    .obj .vis{font-size:16px;padding:5px 8px}
     .obj .del{font-size:22px;padding:4px 8px}
     .go{padding:16px}
     .ghost{padding:14px}
@@ -272,7 +291,7 @@
       <p class="note">True colour keeps the object's own colours. Flat replaces them with one high-contrast tone. Opacity applies to whole-object pieces; a piece cut <i>out of</i> an object is always solid so it merges with its body when it lands.</p>
     </div>
 
-    <div class="group">
+    <div class="group" id="selGroup">
       <h2 id="selHead">Selected object</h2>
       <label class="check" style="margin-top:0"><input type="checkbox" id="bgRemove" disabled> Remove its background</label>
       <div class="row">
@@ -577,6 +596,13 @@
 (function(){
   "use strict";
 
+  var lastTouchEnd=0;
+  document.addEventListener('touchend',function(e){
+    var now=Date.now();
+    if(now-lastTouchEnd<=300) e.preventDefault();
+    lastTouchEnd=now;
+  },{passive:false});
+
   var W=1080, H=1920, FPS=30;
   var view=document.getElementById('view'), ctx=view.getContext('2d');
 
@@ -649,19 +675,22 @@
   ];
 
   function inkColor(){ return S.bg==='#12141c' ? '#f2f5ff' : '#10131f'; }
-  function cutList(){ return S.objs.filter(function(o){ return o.cut; }); }
+  function cutList(){ return S.objs.filter(function(o){ return o.cut && !o.hidden; }); }
   function pickList(){ return S.objs.filter(function(o){ return o.pick; }); }
+  function isShown(o){ return o && !o.hidden; }
+  function unlockedOf(list){ return (list||[]).filter(function(o){ return !o.locked; }); }
+  function selFrozen(){ var o=S.objs[S.sel]; return !!(o&&o.locked); }
   /* an edit hits every ticked object, or just the highlighted one if none are ticked */
   function targets(){
     var p=pickList();
-    if(p.length) return p;
-    var o=S.objs[S.sel];
-    return o?[o]:[];
+    var list=p.length ? p : (S.objs[S.sel] ? [S.objs[S.sel]] : []);
+    return unlockedOf(list);
   }
   /* motion only runs on cut objects — bulk edits must mark the whole set */
   function ensureCut(list){
     var changed=false;
     (list||[]).forEach(function(o){
+      if(o.locked) return;
       if(!o.cut){ o.cut=true; changed=true; }
     });
     return changed;
@@ -1300,6 +1329,7 @@
 
     // everything that stays put: whole objects, plus the leftover body of split ones
     S.objs.forEach(function(o){
+      if(o.hidden) return;
       if(!o.cut) drawAt(o.img,1,o.x,o.y,o.rot,1,dispW(o),dispH(o));
       else if(isSplit(o) && !isPickMode(modeOf(o))) drawAt(remSrc(o),1,o.x,o.y,o.rot,1,dispW(o),dispH(o));
     });
@@ -1308,7 +1338,7 @@
     if(S.slotA>0 && !isPickMode(S.mode)){
       var a=slotAlpha();
       S.objs.forEach(function(o){
-        if(!o.cut) return;
+        if(o.hidden||!o.cut) return;
         var sps=activeSplits(o).filter(function(sp){ return sp.cut; });
         if(sps.length) sps.forEach(function(sp){ drawCutPiece(o,sp,a,null); });
         else drawPiece(o,a,null);
@@ -1316,7 +1346,7 @@
     }
 
     S.objs.forEach(function(o){
-      if(!o.cut) return;
+      if(o.hidden||!o.cut) return;
       var sps=activeSplits(o).filter(function(sp){ return sp.cut; });
       if(sps.length){
         sps.forEach(function(sp){
@@ -1371,7 +1401,7 @@
 
     if(!recording){
       S.objs.forEach(function(o,i){
-        if(!o.pick||i===S.sel) return;
+        if(o.hidden||!o.pick||i===S.sel) return;
         ctx.save();
         ctx.translate(o.x,o.y); ctx.rotate(o.rot);
         ctx.strokeStyle='#35e0d0'; ctx.lineWidth=3; ctx.setLineDash([12,9]);
@@ -1380,7 +1410,7 @@
       });
     }
 
-    if(!recording && S.sel>=0 && S.objs[S.sel]){
+    if(!recording && S.sel>=0 && isShown(S.objs[S.sel])){
       var so=S.objs[S.sel], w=dispW(so), h=dispH(so);
       ctx.save();
       ctx.translate(so.x,so.y); ctx.rotate(so.rot);
@@ -1679,23 +1709,32 @@
     h.textContent = n>1 ? n+' objects selected' : 'Selected object';
   }
 
+  function clearLockedSelection(){
+    var o=S.objs[S.sel];
+    if(o&&o.locked){ S.sel=-1; S.selSplit=-1; }
+    S.objs.forEach(function(item){ if(item.locked) item.pick=false; });
+  }
+
   function renderList(){
+    clearLockedSelection();
     objsEl.innerHTML='';
     S.objs.forEach(function(o,i){
       var row=document.createElement('div');
-      row.className='obj'+(i===S.sel?' sel':'');
+      row.className='obj'+(i===S.sel?' sel':'')+(o.hidden?' hid':'')+(o.locked?' lckd':'');
       var nsp=activeSplits(o).length;
       var badge = o.cut ? '<span class="mult">'+(nsp?'✂×'+nsp+' ':' ')+(o.mult<0?'−':'')+Math.abs(o.mult)+'×</span>' : '';
       if(o.pick) row.className+=' picked';
-      row.innerHTML='<input type="checkbox" class="pick" '+(o.pick?'checked':'')+' title="Select for bulk edits">'+
+      row.innerHTML='<input type="checkbox" class="pick" '+(o.pick?'checked':'')+(o.locked?' disabled':'')+' title="'+(o.locked?'Unlock to select':'Select for bulk edits')+'">'+
                     '<div class="thumb" style="background-image:url('+o.url+')"></div>'+
                     '<div class="nm">'+o.name+'</div>'+badge+
                     '<span class="w" data-i="'+i+'"></span>'+
                     '<button class="cut'+(o.cut?' on':'')+'" data-a="cut">cut</button>'+
-                    '<button class="lck'+(o.locked?' on':'')+'" data-a="lck" title="'+(o.locked?'Unlock item':'Lock item (pin position, solid opacity)')+'">&#x1F512;</button>'+
+                    '<button class="lck'+(o.locked?' on':'')+'" data-a="lck" title="'+(o.locked?'Unlock item':'Lock item (freeze position and sidebar edits)')+'">&#x1F512;</button>'+
+                    '<button class="vis'+(o.hidden?' off':'')+'" data-a="vis" title="'+(o.hidden?'Show item':'Hide item')+'">'+(o.hidden?'&#x1F576;':'&#x1F441;')+'</button>'+
                     '<button class="del" data-a="del" title="Remove">&times;</button>';
       row.addEventListener('click',function(e){
         if(e.target.classList&&e.target.classList.contains('pick')){
+          if(o.locked){ e.target.checked=false; return; }
           o.pick=e.target.checked; refreshPickBar(); renderList(); syncSel(); return;
         }
         var b=e.target.closest('button');
@@ -1707,15 +1746,27 @@
             if(!item.cut || item.multTouched || Math.abs(item.mult)!==1) return;
             item.mult = set.length>1 ? 1 : ((cutList().length%2===0)?1:-1);
           });
-          S.sel=i; renderList(); syncSel(); syncTravel(); rebuildRuler(); return;
+          if(!o.locked) S.sel=i;
+          renderList(); syncSel(); syncTravel(); rebuildRuler(); return;
         }
         if(b&&b.dataset.a==='lck'){
           var lset=(o.pick && pickList().length>1) ? pickList() : [o];
           var lnext=!o.locked;
-          lset.forEach(function(item){ item.locked=lnext; });
-          S.sel=i; renderList(); draw(curT); return;
+          lset.forEach(function(item){
+            item.locked=lnext;
+            if(item.locked) item.pick=false;
+          });
+          renderList(); syncSel(); draw(curT); return;
+        }
+        if(b&&b.dataset.a==='vis'){
+          var vset=(o.pick && pickList().length>1) ? pickList() : [o];
+          var vnext=!o.hidden;
+          vset.forEach(function(item){ item.hidden=vnext; });
+          if(!o.locked) S.sel=i;
+          renderList(); rebuildRuler(); draw(curT); return;
         }
         if(b&&b.dataset.a==='del'){ removeObj(i); return; }
+        if(o.locked) return;
         S.sel=i; S.selSplit=-1; renderList(); syncSel(); paintBadges();
       });
       objsEl.appendChild(row);
@@ -1753,6 +1804,7 @@
         '<button class="sp-cut'+(sp.cut&&sp.on?' on':'')+'">moves</button>'+
         '<button class="sp-del" title="Remove">\xd7</button>';
       row.addEventListener('click',function(e){
+        if(o.locked) return;
         if(e.target.classList.contains('sp-on')){
           sp.on=e.target.checked;
           if(sp.on&&!o.cut) o.cut=true;
@@ -1794,9 +1846,25 @@
     }
   }
 
+  function freezeSelEdits(frozen){
+    var group=document.getElementById('selGroup');
+    if(!group) return;
+    group.classList.toggle('item-locked', frozen);
+    Array.prototype.forEach.call(group.querySelectorAll('input,button'),function(el){
+      if(frozen){ el.disabled=true; return; }
+      if(el.tagName==='BUTTON') el.disabled=false;
+    });
+    if(!frozen){
+      document.getElementById('nudgeSlider').disabled=false;
+      document.getElementById('itemGap').disabled=false;
+    }
+  }
+
   function syncSel(){
     // ticked rows drive the panel even when no single row is highlighted
-    var o=S.objs[S.sel]||targets()[0];
+    var o=S.objs[S.sel];
+    if(!o) o=targets()[0];
+    var frozen=!!(S.objs[S.sel]&&S.objs[S.sel].locked);
     var sp=(o&&S.selSplit>=0)?o.splits[S.selSplit]:null; // selected split, if any
     var sc=document.getElementById('oscale'), rt=document.getElementById('orot'), ml=document.getElementById('omult');
     sc.disabled=!o; rt.disabled=!o;
@@ -1815,6 +1883,7 @@
       document.getElementById('splitList').innerHTML='';
       ['splitS','splitX','splitY','pvX','pvY'].forEach(function(id){ document.getElementById(id).disabled=true; });
       document.getElementById('splitPane').style.opacity='0.42';
+      freezeSelEdits(false);
       return;
     }
     sc.value=Math.round(longSide(o));
@@ -1849,6 +1918,12 @@
     document.getElementById('addSplit').disabled=false;
     renderSplitList(o);
     checkSpin();
+    freezeSelEdits(frozen);
+    if(frozen){
+      var head=document.getElementById('selHead');
+      var n=pickList().length;
+      head.textContent = n>1 ? n+' objects selected — this one is locked' : 'Selected object — locked';
+    }
   }
 
   /* ---------- loading ---------- */
@@ -1865,7 +1940,7 @@
           var o={
             img:im, url:e.target.result, name:f.name.replace(/\.[^.]+$/,'').slice(0,20),
             scale:340/Math.max(im.naturalWidth,im.naturalHeight),
-            rot:0, mult:1, mode:'', sweepAxis:'', cut:(n===0), win:0, pick:false, locked:false, pv:{x:0,y:0},
+            rot:0, mult:1, mode:'', sweepAxis:'', cut:(n===0), win:0, pick:false, locked:false, hidden:false, pv:{x:0,y:0},
             splits:[],
             rawURL:e.target.result, bgOn:false, bgTol:60,
             x:Math.max(120,Math.min(W-120,300+(n%3)*240)),
@@ -1924,10 +1999,10 @@
 
   /* what a canvas gesture acts on: every ticked object, else the highlighted one */
   function gestureSet(){
-    var p=pickList().filter(function(o){ return !o.locked; });
+    var p=pickList().filter(function(o){ return !o.locked && !o.hidden; });
     if(p.length) return p;
     var o=S.objs[S.sel];
-    return (o&&!o.locked)?[o]:[];
+    return (o&&!o.locked&&!o.hidden)?[o]:[];
   }
 
   var multiMode=false;
@@ -1941,7 +2016,10 @@
   var ptrs={}, ptrCount=0, dragInfo=null, pinch=null;
 
   function hitAt(p){
-    for(var i=S.objs.length-1;i>=0;i--) if(hitTest(S.objs[i],p.x,p.y)) return i;
+    for(var i=S.objs.length-1;i>=0;i--){
+      if(S.objs[i].hidden) continue;
+      if(hitTest(S.objs[i],p.x,p.y)) return i;
+    }
     return -1;
   }
 
@@ -2016,6 +2094,10 @@
     }
 
     var o=S.objs[found];
+    if(o.locked){
+      dragInfo=null;
+      return;
+    }
     var toggling = multiMode||e.shiftKey||e.ctrlKey||e.metaKey;
     if(toggling){
       o.pick=!o.pick;
@@ -2027,7 +2109,7 @@
 
     S.sel=found;
     renderList(); syncSel();
-    var dragSet=(o.pick ? pickList() : [o]).filter(function(it){ return !it.locked; });
+    var dragSet=(o.pick ? pickList() : [o]).filter(function(it){ return !it.locked && !it.hidden; });
     if(dragSet.length) beginDrag(p, dragSet);  // grabbing a ticked object moves the whole set
   });
 
@@ -2097,6 +2179,7 @@
   /* per-object override; blank means follow the scene */
   document.getElementById('osweepSeg').addEventListener('click',function(e){
     var b=e.target.closest('button'); if(!b) return;
+    if(selFrozen()) return;
     var val=b.dataset.osweep||'';
     var o=S.objs[S.sel];
     var sp=(o&&S.selSplit>=0)?o.splits[S.selSplit]:null;
@@ -2119,7 +2202,7 @@
   seg('styleSeg','style',checkSpin);
 
   document.getElementById('pickAll').addEventListener('click',function(){
-    S.objs.forEach(function(o){ o.pick=true; });
+    S.objs.forEach(function(o){ if(!o.locked) o.pick=true; });
     renderList(); syncSel();
   });
   document.getElementById('pickNone').addEventListener('click',function(){
@@ -2127,7 +2210,7 @@
     renderList(); syncSel();
   });
   document.getElementById('pickCut').addEventListener('click',function(){
-    var set=pickList().length?pickList():S.objs.slice();
+    var set=unlockedOf(pickList().length?pickList():S.objs.slice());
     if(!set.length) return;
     ensureCut(set);
     renderList(); syncSel(); syncTravel(); rebuildRuler();
@@ -2138,11 +2221,12 @@
     if(tag==='input'||tag==='textarea'||tag==='select') return;
     if(!S.objs.length) return;
     e.preventDefault();
-    S.objs.forEach(function(o){ o.pick=true; });
+    S.objs.forEach(function(o){ if(!o.locked) o.pick=true; });
     renderList(); syncSel();
   });
   document.getElementById('layoutRow').addEventListener('click',function(e){
     var b=e.target.closest('button'); if(!b) return;
+    if(selFrozen()) return;
     applyLayout(b.dataset.layout);
   });
   document.getElementById('sceneDirSeg').addEventListener('click',function(e){
@@ -2153,12 +2237,14 @@
 
   var bgTimer=null;
   document.getElementById('bgRemove').addEventListener('change',function(){
+    if(selFrozen()){ this.checked=!!(S.objs[S.sel]&&S.objs[S.sel].bgOn); return; }
     var list=targets(); if(!list.length){ this.checked=false; return; }
     var on=this.checked;
     document.getElementById('bgTol').disabled=!on;
     list.forEach(function(o){ o.bgOn=on; applyBg(o); });
   });
   document.getElementById('bgTol').addEventListener('input',function(){
+    if(selFrozen()) return;
     var v=parseFloat(this.value);
     document.getElementById('vBgTol').textContent=v;
     var list=targets().filter(function(o){ return o.bgOn; });
@@ -2169,7 +2255,7 @@
   });
 
   document.getElementById('addSplit').addEventListener('click',function(){
-    var o=S.objs[S.sel]; if(!o) return;
+    var o=S.objs[S.sel]; if(!o||o.locked) return;
     var sp={on:true,shape:'circle',fs:0.40,fx:0,fy:0,cut:true,win:0,mult:1,mode:'',sweepAxis:'',pv:{x:0,y:0},cutTrue:null,cutFlat:null,splitSize:0,splitR:0,cueTrue:0,cueFlat:0};
     o.splits.push(sp);
     if(!o.cut) o.cut=true;
@@ -2180,7 +2266,7 @@
 
   document.getElementById('splitShapeSeg').addEventListener('click',function(e){
     var b=e.target.closest('button'); if(!b) return;
-    var o=S.objs[S.sel]; if(!o||S.selSplit<0||!o.splits[S.selSplit]) return;
+    var o=S.objs[S.sel]; if(!o||o.locked||S.selSplit<0||!o.splits[S.selSplit]) return;
     o.splits[S.selSplit].shape=b.dataset.sshape;
     Array.prototype.forEach.call(this.children,function(c){ c.setAttribute('aria-pressed',String(c===b)); });
     buildSplits(o); rebuildRuler(); draw(curT);
@@ -2191,7 +2277,7 @@
     el.addEventListener('input',function(){
       var v=parseFloat(el.value);
       document.getElementById(out).textContent=Math.round(v)+'%';
-      var o=S.objs[S.sel]; if(!o||S.selSplit<0||!o.splits[S.selSplit]) return;
+      var o=S.objs[S.sel]; if(!o||o.locked||S.selSplit<0||!o.splits[S.selSplit]) return;
       o.splits[S.selSplit][key]=v/scale;
       buildSplits(o); rebuildRuler(); draw(curT);
     });
@@ -2208,11 +2294,13 @@
       var sp=(o&&S.selSplit>=0)?o.splits[S.selSplit]:null;
       if(sp){
         if(!sp.pv) sp.pv={x:0,y:0};
+        if(selFrozen()) return;
         sp.pv[axis]=v/100;
         document.getElementById(out).textContent=pivotLabel(o,v);
         rebuildRuler();
       } else {
         var list=targets();
+        if(!list.length) return;
         var cutChanged=ensureCut(list);
         list.forEach(function(o){ if(!o.pv) o.pv={x:0,y:0}; o.pv[axis]=v/100; });
         document.getElementById(out).textContent=pivotLabel(S.objs[S.sel]||targets()[0],v);
@@ -2230,6 +2318,7 @@
 
   document.getElementById('omodeSeg').addEventListener('click',function(e){
     var b=e.target.closest('button'); if(!b) return;
+    if(selFrozen()) return;
     var mode=b.dataset.omode||'';
     var o=S.objs[S.sel];
     var sp=(o&&S.selSplit>=0)?o.splits[S.selSplit]:null;
@@ -2347,7 +2436,7 @@
   function setSceneMode(id){
     S.mode=id;
     motionCache.key=null;
-    var picked=pickList();
+    var picked=unlockedOf(pickList());
     if(picked.length){
       ensureCut(picked);
       if(id==='sweep'||id==='slide'||id==='drop'||id==='bounce'||id==='conveyor'||id==='wave'||id==='elastic'||id==='blurRush'){
@@ -2355,8 +2444,8 @@
       }
     }
     if(id==='centerRun'){
-      cutList().forEach(function(o){ o.mult=1; o.multTouched=true; });
-      if(cutList().length>1) spaceEqually();
+      unlockedOf(cutList()).forEach(function(o){ o.mult=1; o.multTouched=true; });
+      if(unlockedOf(cutList()).length>1) spaceEqually();
     }
     syncAnimControls(); renderList(); syncSel(); rebuildRuler();
   }
@@ -2470,12 +2559,13 @@
   }
 
   function layoutSet(){
-    var p=pickList();
-    return p.length ? p : S.objs.slice();
+    var picked=pickList().filter(isShown);
+    if(picked.length) return unlockedOf(picked);
+    return unlockedOf(S.objs.filter(isShown));
   }
 
   function spaceEqually(){
-    var set=cutList();
+    var set=unlockedOf(cutList());
     if(S.layoutPack==='across'){ packLine(set,'x'); return; }
     if(S.layoutPack==='down'){ packLine(set,'y'); return; }
     spaceAcross(set);
@@ -2597,7 +2687,7 @@
     if(p.fakeStopStrength!==undefined) S.fakeStopStrength=p.fakeStopStrength;
     if(p.fakeStopPosition!==undefined) S.fakeStopPosition=p.fakeStopPosition;
     if(S.mode==='centerRun'){
-      cutList().forEach(function(o){ o.mult=1; o.multTouched=true; });
+      unlockedOf(cutList()).forEach(function(o){ o.mult=1; o.multTouched=true; });
     }
     if(p.layout) spaceEqually();
     document.getElementById('loop').value=S.loop;
@@ -2627,20 +2717,28 @@
     });
   }
   slider('itemGap','vItemGap',function(v){return Math.round(v)+' px';},function(v){
+    if(selFrozen()) return S.itemSpacing;
     S.itemSpacing=v;
     if(S.layoutPack==='across' || S.layoutPack==='down') applyLayout(S.layoutPack);
   });
   slider('oscale','vScale',function(v){return Math.round(v)+' px';},function(v){
-    targets().forEach(function(o){ o.scale=v/Math.max(o.img.naturalWidth,o.img.naturalHeight); });
+    var list=targets();
+    if(!list.length) return;
+    list.forEach(function(o){ o.scale=v/Math.max(o.img.naturalWidth,o.img.naturalHeight); });
     rebuildRuler();          // split canvases are in natural pixels, so scale alone is enough
   });
   slider('orot','vRot',function(v){return Math.round(v)+'°';},function(v){
-    targets().forEach(function(o){ o.rot=v*Math.PI/180; });
+    var list=targets();
+    if(!list.length) return;
+    list.forEach(function(o){ o.rot=v*Math.PI/180; });
   });
   document.getElementById('rotReset').addEventListener('click',function(){
+    if(selFrozen()) return;
     var rt=document.getElementById('orot');
     rt.value=0;
-    targets().forEach(function(o){ o.rot=0; });
+    var list=targets();
+    if(!list.length) return;
+    list.forEach(function(o){ o.rot=0; });
     document.getElementById('vRot').textContent='0°';
     motionCache.key=null; rebuildRuler(); draw(curT);
   });
@@ -2652,8 +2750,9 @@
   });
   document.getElementById('dpad').addEventListener('click',function(e){
     var b=e.target.closest('button[data-dir]'); if(!b) return;
+    if(selFrozen()) return;
     var dir=b.dataset.dir;
-    var set=targets().filter(function(o){ return !o.locked; });
+    var set=targets().filter(isShown);
     if(!set.length) return;
     set.forEach(function(o){
       if(dir==='up')    o.y=clampY(o.y-nudgeStep);
@@ -2664,6 +2763,7 @@
     motionCache.key=null; rebuildRuler(); draw(curT);
   });
   slider('omult','vMult',function(v){return v;},function(v){
+    if(selFrozen()) return document.getElementById('vMult').textContent;
     if(v===0) v=1;
     document.getElementById('omult').value=v;
     var o=S.objs[S.sel];
@@ -3317,14 +3417,16 @@
     landingsOf: landingsOf, rebuildRuler: rebuildRuler, seekFrame: seekFrame,
     setSceneMode: setSceneMode, setPhaseMod: setPhaseMod, applyPreset: applyPreset,
     spaceEqually: spaceEqually, frameCount: frameCount, winMap: function(){ return winMap; },
+    renderList: renderList, syncSel: syncSel, targets: targets,
     installFixtures: function(n){
       S.objs=[];
       for(var i=0;i<n;i++){
         var img={naturalWidth:120, naturalHeight:220};
         S.objs.push({
           img:img, url:'', name:'P'+(i+1),
-          scale:1, rot:0, mult:1, mode:'', sweepAxis:'', cut:true, win:0, pick:false,
-          pv:{x:0,y:0}, split:{on:false,shape:'circle',fx:0,fy:0,fs:0.40},
+          scale:1, rot:0, mult:1, mode:'', sweepAxis:'', cut:true, win:0, pick:false, locked:false, hidden:false,
+          pv:{x:0,y:0}, splits:[],
+          split:{on:false,shape:'circle',fx:0,fy:0,fs:0.40},
           x:200+i*160, y:900, alpha:{rNat:80,opaque:0.4}
         });
       }
