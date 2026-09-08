@@ -1,0 +1,8 @@
+node_modules
+.git
+*.md
+tiny.png
+tiny-out.png
+headers.txt
+cors.json
+trust-policy.json

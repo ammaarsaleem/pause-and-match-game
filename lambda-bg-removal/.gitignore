@@ -1,0 +1,5 @@
+node_modules
+.aws-sam
+tiny.png
+tiny-out.png
+headers.txt

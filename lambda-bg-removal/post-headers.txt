@@ -1,0 +1,9 @@
+HTTP/1.1 200 OK
+Date: Tue, 08 Sep 2026 05:28:11 GMT
+Content-Type: image/png
+Content-Length: 116
+Connection: keep-alive
+x-amzn-RequestId: ea818914-ec7d-49c6-9528-c244e1ac78ce
+Access-Control-Allow-Origin: *
+X-Amzn-Trace-Id: Root=1-6a9f9cd7-3d262d3b43f8f04d3f814434;Parent=66c8cfa291096ea0;Sampled=0;Lineage=1:5e3668fe:0
+

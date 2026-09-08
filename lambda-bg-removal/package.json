@@ -1,0 +1,9 @@
+{
+  "name": "pause-match-bg-remove",
+  "private": true,
+  "version": "1.0.0",
+  "main": "handler.js",
+  "dependencies": {
+    "@imgly/background-removal-node": "1.4.5"
+  }
+}

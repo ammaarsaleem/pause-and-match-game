@@ -6,134 +6,7 @@
 <title>Silhouette Pause Studio</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-<link rel="preconnect" href="https://staticimgly.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<script type="importmap">
-{
-  "imports": {
-    "onnxruntime-web": "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.21.0/dist/ort.bundle.min.mjs",
-    "onnxruntime-web/webgpu": "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.21.0/dist/ort.webgpu.bundle.min.mjs"
-  }
-}
-</script>
-<script>
-(function(){
-  var CACHE='imgly-bg-removal-1.7.0';
-  var PREFIX='https://staticimgly.com/@imgly/background-removal-data/';
-  var origFetch=window.fetch.bind(window);
-  var mem=Object.create(null);
-  var inflight=Object.create(null);
-  function urlOf(input){
-    try{
-      if(typeof input==='string') return input;
-      if(input instanceof URL) return String(input);
-      if(input&&typeof input.url==='string') return input.url;
-    }catch(e){}
-    return '';
-  }
-  function isModel(u){ return u.indexOf(PREFIX)!==-1; }
-  var dbPromise=null;
-  function idbOpen(){
-    if(dbPromise) return dbPromise;
-    dbPromise=new Promise(function(resolve,reject){
-      var req=indexedDB.open(CACHE,1);
-      req.onupgradeneeded=function(){ req.result.createObjectStore('files'); };
-      req.onsuccess=function(){ resolve(req.result); };
-      req.onerror=function(){ dbPromise=null; reject(req.error); };
-    });
-    return dbPromise;
-  }
-  function idbGet(url){
-    return idbOpen().then(function(db){
-      return new Promise(function(resolve,reject){
-        var q=db.transaction('files','readonly').objectStore('files').get(url);
-        q.onsuccess=function(){ resolve(q.result||null); };
-        q.onerror=function(){ reject(q.error); };
-      });
-    }).catch(function(){ return null; });
-  }
-  function idbPut(url,rec){
-    return idbOpen().then(function(db){
-      return new Promise(function(resolve,reject){
-        var q=db.transaction('files','readwrite').objectStore('files').put(rec,url);
-        q.onsuccess=function(){ resolve(); };
-        q.onerror=function(){ reject(q.error); };
-      });
-    }).catch(function(){});
-  }
-  function fromStores(url){
-    if(mem[url]) return Promise.resolve(mem[url]);
-    return Promise.resolve().then(function(){
-      if(!window.caches) return null;
-      return caches.open(CACHE).then(function(cache){ return cache.match(url); }).then(function(hit){
-        if(!hit) return null;
-        return hit.blob().then(function(blob){
-          var rec={blob:blob,type:hit.headers.get('Content-Type')||blob.type||'application/octet-stream'};
-          mem[url]=rec;
-          return rec;
-        });
-      });
-    }).catch(function(){ return null; }).then(function(rec){
-      if(rec) return rec;
-      return idbGet(url).then(function(stored){
-        if(stored&&stored.blob){ mem[url]=stored; return stored; }
-        return null;
-      });
-    });
-  }
-  function toStores(url,blob,type){
-    var rec={blob:blob,type:type};
-    mem[url]=rec;
-    var putCache=(!window.caches)?Promise.resolve():caches.open(CACHE).then(function(cache){
-      return cache.put(url,new Response(blob,{headers:{'Content-Type':type,'Cache-Control':'public,max-age=31536000,immutable'}}));
-    }).catch(function(){});
-    return Promise.all([putCache,idbPut(url,rec)]);
-  }
-  window.fetch=function(input,init){
-    var url=urlOf(input);
-    if(!isModel(url)) return origFetch(input,init);
-    function asResponse(rec){
-      return new Response(rec.blob.slice(),{status:200,headers:{'Content-Type':rec.type}});
-    }
-    if(inflight[url]) return inflight[url].then(asResponse);
-    inflight[url]=fromStores(url).then(function(cached){
-      if(cached){ window.__imglyLastFetchCached=true; return cached; }
-      return origFetch(input,init).then(function(res){
-        if(!res.ok) throw new Error('Model download failed ('+res.status+')');
-        var type=res.headers.get('Content-Type')||'application/octet-stream';
-        return res.blob().then(function(blob){
-          window.__imglyDidNetwork=true;
-          window.__imglyLastFetchCached=false;
-          return toStores(url,blob,type).then(function(){ return mem[url]; });
-        });
-      });
-    });
-    return inflight[url].then(function(rec){
-      delete inflight[url];
-      return asResponse(rec);
-    },function(err){
-      delete inflight[url];
-      throw err;
-    });
-  };
-  window.__imglyHasCachedModel=function(){
-    return fromStores(PREFIX+'1.7.0/dist/resources.json').then(function(rec){ return !!rec; });
-  };
-  window.__imglyReady=new Promise(function(resolve,reject){
-    window.__resolveImgly=resolve;
-    window.__rejectImgly=reject;
-  });
-})();
-</script>
-<script type="module">
-  try {
-    const { removeBackground, preload } = await import('https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/dist/index.mjs');
-    window.__resolveImgly({ removeBackground, preload });
-  } catch (err) {
-    window.__rejectImgly(err);
-  }
-</script>
 <style>
   :root{
     --ink:#0b1020; --panel:#151c33; --panel2:#1b2440; --line:#26304f;
@@ -424,7 +297,7 @@
       <label class="check" style="margin-top:0"><input type="checkbox" id="bgRemove" disabled> Remove its background</label>
       <p class="note" id="bgHint" hidden>This image has no transparency, so it probably still has a background. Tick the box above to strip it.</p>
       <p class="note" id="bgStatus" hidden></p>
-      <p class="note">Uses an on-device AI model. It downloads once, then this device reuses the saved copy. iPhone and iPad use a smaller model so Safari does not run out of memory.</p>
+      <p class="note">Background removal always runs on the server. Photos are sent to Lambda, so phones and iPads are not limited by on-device memory.</p>
 
       <p class="sub">Placement</p>
       <div class="row" style="margin-top:0">
@@ -721,6 +594,9 @@
 (function(){
   "use strict";
 
+  /* All devices POST photos to this Lambda Function URL. The model lives in the container. */
+  var BG_LAMBDA_URL='https://sysixlc3wlqxnc4icrj55muoiq0guerf.lambda-url.us-east-1.on.aws/';
+
   var lastTouchEnd=0;
   document.addEventListener('touchend',function(e){
     var now=Date.now();
@@ -851,46 +727,11 @@
     return m;
   }
 
-  /* ---------- background removal (@imgly/background-removal) ---------- */
-  var IMGLY_PUBLIC='https://staticimgly.com/@imgly/background-removal-data/1.7.0/dist/';
-
-  function appleTouchDevice(){
-    var ua=navigator.userAgent||'';
-    return /iPad|iPhone|iPod/.test(ua) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
-  }
-  function useSmallBgModel(){
-    if(appleTouchDevice()) return true;
-    if(typeof navigator.deviceMemory==='number' && navigator.deviceMemory<=4) return true;
-    return false;
-  }
-  function bgOomError(err){
-    var m=String(err&&err.message||err||'');
-    return /out of memory|no available backend/i.test(m);
-  }
+  /* ---------- background removal (AWS Lambda) ---------- */
   function friendlyBgError(err){
-    if(bgOomError(err)){
-      return 'This device ran out of memory loading the background model. Close other tabs, use a smaller photo, then tick the box again.';
-    }
     return (err&&err.message)||String(err)||'Background removal failed.';
   }
-  function makeBgConfig(device,model){
-    return {
-      publicPath:IMGLY_PUBLIC,
-      model:model,
-      device:device,
-      output:{format:'image/png',quality:1},
-      progress:function(key,current,total){
-        if(!total) return;
-        var pct=Math.min(100,Math.round(current/total*100));
-        if(String(key).indexOf('fetch:')===0){
-          setBgStatus((window.__imglyDidNetwork?'Downloading model once… ':'Loading saved model… ')+pct+'%');
-        } else {
-          setBgStatus('Removing background…');
-        }
-      }
-    };
-  }
-  function prepareBgInput(srcUrl,maxSide){
+  function prepareBgInput(srcUrl,maxSide,mime,quality){
     return new Promise(function(resolve,reject){
       var img=new Image();
       img.onload=function(){
@@ -904,42 +745,29 @@
         c.toBlob(function(blob){
           if(!blob) reject(new Error('Could not prepare the image.'));
           else resolve(blob);
-        },'image/png');
+        }, mime||'image/png', quality);
       };
       img.onerror=function(){ reject(new Error('Could not read the image.')); };
       img.src=srcUrl;
     });
   }
-  function bgMaskEmpty(blob){
-    return createImageBitmap(blob).then(function(bmp){
-      var w=Math.min(48,bmp.width), h=Math.min(48,bmp.height);
-      var c=document.createElement('canvas'); c.width=w; c.height=h;
-      var g=c.getContext('2d'); g.drawImage(bmp,0,0,w,h);
-      var d=g.getImageData(0,0,w,h).data, solid=0, i;
-      for(i=3;i<d.length;i+=4) if(d[i]>24) solid++;
-      return solid<4;
-    });
-  }
-  function removeBgWithFallback(api,input,model,devices,i){
-    if(i>=devices.length) return Promise.reject(new Error('Background removal failed.'));
-    return api.removeBackground(input, makeBgConfig(devices[i], model)).then(function(blob){
-      return bgMaskEmpty(blob).then(function(empty){
-        if(empty && i+1<devices.length){
-          setBgStatus('Retrying with a lower-memory mode…');
-          return removeBgWithFallback(api,input,model,devices,i+1);
-        }
-        if(empty) return Promise.reject(new Error('Background removal returned an empty image.'));
-        return blob;
-      });
-    }).catch(function(err){
-      if(i+1<devices.length){
-        setBgStatus('Retrying with a lower-memory mode…');
-        return removeBgWithFallback(api,input,model,devices,i+1);
+  function removeBgViaLambda(blob){
+    if(!BG_LAMBDA_URL) return Promise.reject(new Error('Lambda URL is not set.'));
+    if(blob.size>5.5*1024*1024) return Promise.reject(new Error('Photo is still too large after resize. Try a smaller image.'));
+    setBgStatus('Removing background on the server…');
+    return fetch(BG_LAMBDA_URL,{
+      method:'POST',
+      headers:{'content-type':'application/octet-stream'},
+      body:blob
+    }).then(function(res){
+      if(!res.ok){
+        return res.text().then(function(t){
+          throw new Error(t||('Background server error '+res.status));
+        });
       }
-      return Promise.reject(err);
+      return res.blob();
     });
   }
-
   function setBgStatus(msg,isErr){
     var el=document.getElementById('bgStatus');
     if(!el) return;
@@ -998,24 +826,14 @@
       return;
     }
 
-    window.__imglyDidNetwork=false;
-    var small=useSmallBgModel();
-    var model=small?'small':'medium';
-    var maxSide=appleTouchDevice()?1024:2048;
-    var devices=(appleTouchDevice() && navigator.gpu)?['gpu','cpu']:['cpu'];
-    setBgStatus(small?'Loading a smaller on-device model…':'Loading background remover…');
-    window.__imglyReady.then(function(api){
+    setBgStatus('Sending photo to the background-removal server…');
+    prepareBgInput(o.rawURL,1024,'image/jpeg',0.85).then(function(blob){
       if(!stillCurrent()) return;
-      return prepareBgInput(o.rawURL,maxSide).then(function(blob){
-        if(!stillCurrent()) return;
-        return removeBgWithFallback(api,blob,model,devices,0);
-      }).then(function(blob){
-        if(!stillCurrent() || !blob) return;
-        finishBgImage(o,URL.createObjectURL(blob),after,gen);
-        setBgStatus(window.__imglyDidNetwork
-          ? 'Background removed. The model is saved on this device for next time.'
-          : 'Background removed from the saved on-device model.');
-      });
+      return removeBgViaLambda(blob);
+    }).then(function(blob){
+      if(!stillCurrent() || !blob) return;
+      finishBgImage(o,URL.createObjectURL(blob),after,gen);
+      setBgStatus('Background removed on the server.');
     }).catch(function(err){
       if(!stillCurrent()) return;
       o.bgOn=false;

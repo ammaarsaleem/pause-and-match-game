@@ -1,0 +1,34 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Background removal Lambda with the medium IMG.LY model baked into the image.
+
+Globals:
+  Function:
+    Timeout: 120
+    MemorySize: 3008
+
+Resources:
+  BgRemoveFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      Architectures: [x86_64]
+      EphemeralStorage:
+        Size: 1024
+      FunctionUrlConfig:
+        AuthType: NONE
+        Cors:
+          AllowOrigins: ['*']
+          AllowMethods: [POST]
+          AllowHeaders: ['content-type', 'authorization']
+          MaxAge: 86400
+          AllowCredentials: false
+    Metadata:
+      DockerTag: medium
+      DockerContext: .
+      Dockerfile: Dockerfile
+
+Outputs:
+  BgRemoveUrl:
+    Description: Paste this into BG_LAMBDA_URL in index.html
+    Value: !GetAtt BgRemoveFunctionUrl.FunctionUrl
