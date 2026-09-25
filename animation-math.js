@@ -205,6 +205,44 @@
     return poseOf(0, p, 0, 1);
   }
 
+  /* ---- waypoint path ---- */
+
+  /* Catmull-Rom through 4 control points, one axis at a time. */
+  function catmullRom(p0, p1, p2, p3, t) {
+    var t2 = t * t, t3 = t2 * t;
+    return 0.5 * (
+      (2 * p1) +
+      (-p0 + p2) * t +
+      (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 +
+      (-p0 + 3 * p1 - 3 * p2 + p3) * t3
+    );
+  }
+
+  /* Waypoint path: travels from (restX,restY) through `points` in order,
+     smoothly curved. Not looped: holds at the last point for any t past 1 —
+     a pure distraction move with no home to return to. Looped: continues
+     back from the last point to (restX,restY) and repeats every t.
+     `speed` shrinks the time the path takes (2 = half the time — finishes
+     sooner and holds longer, or loops twice as often). */
+  function poseWaypoints(t, restX, restY, points, loop, speed) {
+    if (!points || !points.length) return emptyPose();
+    var path = [{ x: restX, y: restY }].concat(points);
+    if (loop) path.push({ x: restX, y: restY });
+    var n = path.length;
+    if (n < 2) return emptyPose();
+    var tt = t * (speed || 1);
+    var u = (loop ? wrap01(tt) : clamp(tt, 0, 1)) * (n - 1);
+    var seg = Math.min(n - 2, Math.floor(u));
+    var local = smoothstep(u - seg);
+    var p0 = path[Math.max(0, seg - 1)];
+    var p1 = path[seg];
+    var p2 = path[seg + 1];
+    var p3 = path[Math.min(n - 1, seg + 2)];
+    var x = catmullRom(p0.x, p1.x, p2.x, p3.x, local);
+    var y = catmullRom(p0.y, p1.y, p2.y, p3.y, local);
+    return poseOf(0, x - restX, y - restY, 1);
+  }
+
   /* Spotlight: the loop is split into `count` equal slots. Only `index` is
      visible in its slot. Everyone is staged at (cx, cy) so the viewer sees
      one object at a time from the list. */
@@ -512,6 +550,7 @@
       case 'blurRush':
       case 'spotlight':
       case 'centerRun':
+      case 'waypoints':
         return 1;
       default:
         throw new Error('unknown mode ' + mode);
@@ -549,6 +588,8 @@
     elasticWindow: elasticWindow,
     poseElastic: poseElastic,
     poseBlurRush: poseBlurRush,
+    catmullRom: catmullRom,
+    poseWaypoints: poseWaypoints,
     spotlightSlot: spotlightSlot,
     poseSpotlight: poseSpotlight,
     centerRunTrack: centerRunTrack,

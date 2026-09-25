@@ -182,6 +182,37 @@
       });
     });
 
+    var wpPts = [{ x: 100, y: 0 }, { x: 100, y: 100 }];
+    assertNear(M.poseWaypoints(0, 0, 0, wpPts, false).dx, 0, 'waypoints stop t=0 dx');
+    assertNear(M.poseWaypoints(1, 0, 0, wpPts, false).dx, 100, 'waypoints stop t=1 lands on last point');
+    assertNear(M.poseWaypoints(1, 0, 0, wpPts, false).dy, 100, 'waypoints stop t=1 lands on last point (y)');
+    assertNear(M.poseWaypoints(1.7, 0, 0, wpPts, false).dx, 100, 'waypoints stop holds past t=1');
+    assertNear(M.poseWaypoints(1.7, 0, 0, wpPts, false).dy, 100, 'waypoints stop holds past t=1 (y)');
+    ok(!M.poseWaypoints(0, 0, 0, [], false).dx, 'waypoints with no points is a no-op');
+
+    assertNear(M.poseWaypoints(0, 0, 0, wpPts, true).dx, 0, 'waypoints loop t=0 is home');
+    assertNear(M.poseWaypoints(0, 0, 0, wpPts, true).dy, 0, 'waypoints loop t=0 is home (y)');
+    var loopWrap = M.poseWaypoints(1, 0, 0, wpPts, true);
+    var loopAtZero = M.poseWaypoints(0, 0, 0, wpPts, true);
+    assertNear(loopWrap.dx, loopAtZero.dx, 'waypoints loop wraps t=1 back to t=0');
+    assertNear(loopWrap.dy, loopAtZero.dy, 'waypoints loop wraps t=1 back to t=0 (y)');
+    var loopMid = M.poseWaypoints(0.7, 0, 0, wpPts, true);
+    ok(isFinite(loopMid.dx) && isFinite(loopMid.dy), 'waypoints loop mid-return finite');
+    ok(M.baseLandings('waypoints') === 1, 'waypoints landings');
+
+    // speed: at 2x, stop mode should already be at the last point by t=0.5 and hold past it
+    var fastStopHalf = M.poseWaypoints(0.5, 0, 0, wpPts, false, 2);
+    assertNear(fastStopHalf.dx, 100, 'waypoints 2x speed reaches the end by t=0.5');
+    var fastStopLate = M.poseWaypoints(0.9, 0, 0, wpPts, false, 2);
+    assertNear(fastStopLate.dx, 100, 'waypoints 2x speed still holds past its early finish');
+    // default speed (1) behaves exactly as before
+    assertNear(M.poseWaypoints(0.5, 0, 0, wpPts, false).dx, M.poseWaypoints(0.5, 0, 0, wpPts, false, 1).dx, 'waypoints default speed matches explicit 1x');
+    // speed: at 2x, loop mode should complete two full loops over t in [0,1]
+    var loopFastQuarter = M.poseWaypoints(0.25, 0, 0, wpPts, true, 2); // 2x*0.25 = 0.5 -> same phase as t=0.5 at 1x
+    var loopRefHalf = M.poseWaypoints(0.5, 0, 0, wpPts, true, 1);
+    assertNear(loopFastQuarter.dx, loopRefHalf.dx, 'waypoints loop speed scales t before wrapping');
+    assertNear(loopFastQuarter.dy, loopRefHalf.dy, 'waypoints loop speed scales t before wrapping (y)');
+
     return { passes: passes, fails: fails };
   }
 

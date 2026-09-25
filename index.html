@@ -379,6 +379,21 @@
             <button data-osweep="diag" aria-pressed="false">Diag</button>
           </div>
         </div>
+        <div class="row" id="rowPoints">
+          <label style="margin-bottom:6px">Path points <b id="vPointCount">0 points</b></label>
+          <div class="seg two" id="pointLoopSeg" style="margin-bottom:8px">
+            <button type="button" data-ploop="0" aria-pressed="true">Stop at last</button>
+            <button type="button" data-ploop="1" aria-pressed="false">Loop</button>
+          </div>
+          <div id="pointList" class="splitlist"></div>
+          <button type="button" id="addPoint" disabled style="width:100%;background:var(--panel2);border:1px dashed var(--line);border-radius:3px;color:var(--muted);cursor:pointer;font-family:var(--display);font-size:10px;letter-spacing:.12em;text-transform:uppercase;padding:8px;margin-top:2px">+ Add point</button>
+          <div style="margin-top:10px">
+            <label>Path speed <b id="vPathSpeed">1×</b></label>
+            <input type="range" id="pathSpeed" min="1" max="10" step="1" value="1">
+          </div>
+          <p class="note">Higher runs the path faster — it covers the points in less time, then holds (or loops) sooner.</p>
+          <p class="note" id="pointHint">Drag it to where it should go next, then tap Add point — it snaps back to its start so you can drag the next stop from the same place. It plays through the points once, in order, then holds on the last one. Purely a distraction; it never has to come home to win.</p>
+        </div>
         <div class="row">
           <label>Pivot across <b id="vPvX">0%</b></label>
           <input type="range" id="pvX" min="-600" max="600" step="10" value="0" disabled>
@@ -640,6 +655,7 @@
     {id:'spotlight', label:'One at a Time', category:'formation', sceneOnly:true, controls:['target','cycles']},
     {id:'centerRun', label:'Center Run', category:'directional', sceneOnly:true, controls:['target','direction','cycles','runGap']},
     {id:'elastic', label:'Elastic', category:'effects', objectCompatible:true, controls:['travel','direction']},
+    {id:'waypoints', label:'Path', category:'effects', objectCompatible:true, controls:[]},
     {id:'teleport', label:'Teleport', category:'effects', sceneOnly:true, controls:['seed','flash']},
     {id:'blurRush', label:'Blur Rush', category:'effects', sceneOnly:true, controls:['travel','direction','blur']}
   ];
@@ -1042,6 +1058,10 @@
       }
       case 'elastic':
         p=PMMath.poseElastic(t,dist,ax); break;
+      case 'waypoints': {
+        var home=o.waypointHome||{x:o.x,y:o.y};
+        p=PMMath.poseWaypoints(t,home.x,home.y,o.points||[],!!o.waypointLoop,o.waypointSpeed||1); break;
+      }
       case 'blurRush':
         p=PMMath.poseBlurRush(t,k,dir,dist,ax); break;
       case 'shuffle':
@@ -1103,6 +1123,8 @@
         return Math.hypot(p.dx,p.dy);
       case 'elastic':
         return Math.hypot(p.dx,p.dy)+PMMath.angDist(p.ang)*r+Math.abs(p.scale-1)*r;
+      case 'waypoints':
+        return 0; // pure distraction — never gates the match/win check
       case 'teleport':
         return Math.hypot(p.dx,p.dy);
       case 'spotlight':
@@ -1478,6 +1500,37 @@
       ctx.restore();
     }
 
+    if(!recording && S.sel>=0 && S.selSplit<0){
+      var wo=S.objs[S.sel];
+      if(wo && isShown(wo) && modeOf(wo)==='waypoints' && wo.points && wo.points.length){
+        var home=wo.waypointHome||{x:wo.x,y:wo.y};
+        var path=[home].concat(wo.points);
+        if(wo.waypointLoop) path.push(home);
+        ctx.save();
+        ctx.strokeStyle='rgba(255,61,127,0.55)';
+        ctx.lineWidth=2.5; ctx.setLineDash([8,7]);
+        ctx.beginPath();
+        ctx.moveTo(path[0].x,path[0].y);
+        for(var wi=1;wi<path.length;wi++) ctx.lineTo(path[wi].x,path[wi].y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        wo.points.forEach(function(pt,pi){
+          var isDragged=pi===pointDragIndex;
+          ctx.beginPath();
+          ctx.arc(pt.x,pt.y,isDragged?22:18,0,Math.PI*2);
+          ctx.fillStyle=isDragged?'#ff3d7f':'#35e0d0';
+          ctx.fill();
+          ctx.lineWidth=3; ctx.strokeStyle='#0a0c12';
+          ctx.stroke();
+          ctx.fillStyle='#0a0c12';
+          ctx.font='700 20px Oswald, sans-serif';
+          ctx.textAlign='center'; ctx.textBaseline='middle';
+          ctx.fillText(String(pi+1),pt.x,pt.y+1);
+        });
+        ctx.restore();
+      }
+    }
+
     var txt=captionText();
     if(S.capOn && txt.trim()){
       txt=txt.toUpperCase();
@@ -1833,6 +1886,36 @@
     renderList(); syncSel(); syncTravel(); rebuildRuler();
   }
 
+  function renderPointList(o){
+    var listEl=document.getElementById('pointList');
+    listEl.innerHTML='';
+    var pts=(o&&o.points)||[];
+    document.getElementById('vPointCount').textContent=pts.length+(pts.length===1?' point':' points');
+    if(!pts.length){
+      var empty=document.createElement('p');
+      empty.className='note';
+      empty.textContent='No points yet — drag it, then tap Add point.';
+      listEl.appendChild(empty);
+      return;
+    }
+    pts.forEach(function(pt,i){
+      var row=document.createElement('div');
+      row.className='splitrow';
+      row.innerHTML=
+        '<span class="sp-shape">'+(i+1)+'</span>'+
+        '<label>'+Math.round(pt.x)+', '+Math.round(pt.y)+'</label>'+
+        '<button class="sp-del" title="Remove">\xd7</button>';
+      row.addEventListener('click',function(e){
+        if(o.locked) return;
+        if(e.target.classList.contains('sp-del')){
+          o.points.splice(i,1);
+          renderPointList(o); rebuildRuler(); draw(curT);
+        }
+      });
+      listEl.appendChild(row);
+    });
+  }
+
   function renderSplitList(o){
     var listEl=document.getElementById('splitList');
     listEl.innerHTML='';
@@ -1916,7 +1999,7 @@
     var sc=document.getElementById('oscale'), rt=document.getElementById('orot'), ml=document.getElementById('omult');
     sc.disabled=!o; rt.disabled=!o;
     var mt=sp||o; // motion target: split takes priority
-    ml.disabled=!o||!o.cut||modeOf(mt)==='centerRun';
+    ml.disabled=!o||!o.cut||modeOf(mt)==='centerRun'||modeOf(mt)==='waypoints';
     document.getElementById('cutPane').style.opacity=(o&&o.cut)?'1':'0.42';
     document.getElementById('cutPaneHead').textContent=sp?'Cut piece motion':'Its motion';
     if(!o){
@@ -1929,6 +2012,8 @@
       document.getElementById('splitList').innerHTML='';
       ['splitS','splitX','splitY','pvX','pvY'].forEach(function(id){ document.getElementById(id).disabled=true; });
       document.getElementById('splitPane').style.opacity='0.42';
+      document.getElementById('rowPoints').classList.add('off');
+      document.getElementById('addPoint').disabled=true;
       freezeSelEdits(false);
       return;
     }
@@ -1938,7 +2023,7 @@
     document.getElementById('vScale').textContent=Math.round(longSide(o))+' px';
     document.getElementById('vRot').textContent=Math.round(o.rot*180/Math.PI)+'°';
     var mtMult=mt.mult!==undefined?mt.mult:o.mult;
-    document.getElementById('vMult').textContent=!o.cut?'not cut':(modeOf(mt)==='centerRun'?((S.sceneDir||1)<0?'scene left':'scene right'):((mtMult<0?'reverse ':'')+Math.abs(mtMult)+'×'));
+    document.getElementById('vMult').textContent=!o.cut?'not cut':(modeOf(mt)==='centerRun'?((S.sceneDir||1)<0?'scene left':'scene right'):(modeOf(mt)==='waypoints'?'path':((mtMult<0?'reverse ':'')+Math.abs(mtMult)+'×')));
     Array.prototype.forEach.call(document.getElementById('omodeSeg').children,function(c){
       c.setAttribute('aria-pressed',String((c.dataset.omode||'')===(mt.mode||'')));
     });
@@ -1946,6 +2031,23 @@
       c.setAttribute('aria-pressed',String((c.dataset.osweep||'')===(mt.sweepAxis||'')));
     });
     document.getElementById('rowOSweep').classList.toggle('off', !usesAxis(modeOf(mt)));
+
+    var isWaypoints=!sp&&modeOf(mt)==='waypoints';
+    document.getElementById('rowPoints').classList.toggle('off', !isWaypoints);
+    document.getElementById('addPoint').disabled=!isWaypoints;
+    if(isWaypoints){
+      renderPointList(o);
+      var loopOn=!!o.waypointLoop;
+      Array.prototype.forEach.call(document.getElementById('pointLoopSeg').children,function(c){
+        c.setAttribute('aria-pressed',String((c.dataset.ploop==='1')===loopOn));
+      });
+      document.getElementById('pointHint').textContent = loopOn
+        ? 'Drag it to where it should go next, then tap Add point — it snaps back to its start so you can drag the next stop from the same place. It loops through the points and back to the start, continuously. Purely a distraction; it never has to come home to win.'
+        : 'Drag it to where it should go next, then tap Add point — it snaps back to its start so you can drag the next stop from the same place. It plays through the points once, in order, then holds on the last one. Purely a distraction; it never has to come home to win.';
+      var pathSpeed=o.waypointSpeed||1;
+      document.getElementById('pathSpeed').value=pathSpeed;
+      document.getElementById('vPathSpeed').textContent=pathSpeed+'×';
+    }
 
     var pv=(mt.pv)||{x:0,y:0};
     var pvxEl=document.getElementById('pvX'), pvyEl=document.getElementById('pvY');
@@ -1984,6 +2086,7 @@
             img:im, url:e.target.result, name:f.name.replace(/\.[^.]+$/,'').slice(0,20),
             scale:340/Math.max(im.naturalWidth,im.naturalHeight),
             rot:0, mult:1, mode:'', sweepAxis:'', cut:(n===0), win:0, pick:false, locked:false, hidden:false, pv:{x:0,y:0},
+            points:[], waypointHome:null, waypointLoop:false, waypointSpeed:1,
             splits:[],
             rawURL:e.target.result, bgOn:false, bgTol:60,
             x:Math.max(120,Math.min(W-120,300+(n%3)*240)),
@@ -2056,12 +2159,23 @@
     multiBtn.textContent=multiMode?'Multi-select on':'Multi-select';
   });
 
-  var ptrs={}, ptrCount=0, dragInfo=null, pinch=null;
+  var ptrs={}, ptrCount=0, dragInfo=null, pinch=null, pointDragIndex=-1;
 
   function hitAt(p){
     for(var i=S.objs.length-1;i>=0;i--){
       if(S.objs[i].hidden) continue;
       if(hitTest(S.objs[i],p.x,p.y)) return i;
+    }
+    return -1;
+  }
+
+  /* hit-test the draggable path-point dots drawn for the selected object */
+  function pointHitAt(p){
+    var o=S.objs[S.sel];
+    if(!o||o.locked||S.selSplit>=0||modeOf(o)!=='waypoints'||!o.points||!o.points.length) return -1;
+    var r=30;
+    for(var i=o.points.length-1;i>=0;i--){
+      if(Math.hypot(p.x-o.points[i].x,p.y-o.points[i].y)<=r) return i;
     }
     return -1;
   }
@@ -2124,10 +2238,19 @@
     view.setPointerCapture(e.pointerId);
     ptrs[e.pointerId]=toCanvas(e); ptrCount++;
 
-    if(ptrCount===2){ dragInfo=null; startPinch(); return; }
+    if(ptrCount===2){ dragInfo=null; pointDragIndex=-1; startPinch(); return; }
     if(ptrCount!==1) return;
 
     var p=ptrs[e.pointerId];
+
+    var pdIdx=pointHitAt(p);
+    if(pdIdx>=0){
+      pointDragIndex=pdIdx;
+      dragInfo=null;
+      view.classList.add('grabbing');
+      return;
+    }
+
     var found=hitAt(p);
 
     if(found<0){
@@ -2160,6 +2283,14 @@
     if(!(e.pointerId in ptrs)) return;
     ptrs[e.pointerId]=toCanvas(e);
     if(pinch) applyPinch();
+    else if(pointDragIndex>=0){
+      var po=S.objs[S.sel];
+      if(po&&po.points&&po.points[pointDragIndex]){
+        var pp=ptrs[e.pointerId];
+        po.points[pointDragIndex].x=clampX(pp.x);
+        po.points[pointDragIndex].y=clampY(pp.y);
+      }
+    }
     else if(dragInfo) applyDrag(ptrs[e.pointerId]);
   });
 
@@ -2168,6 +2299,10 @@
     if(ptrCount<2 && pinch){ pinch=null; syncSel(); rebuildRuler(); }
     if(ptrCount===0){
       if(dragInfo){ dragInfo=null; rebuildRuler(); }
+      if(pointDragIndex>=0){
+        pointDragIndex=-1;
+        rebuildRuler(); // syncSel() below refreshes the point list
+      }
       view.classList.remove('grabbing');
       syncSel();
     }
@@ -2295,6 +2430,29 @@
     renderList(); syncSel(); syncTravel(); rebuildRuler();
   });
 
+  document.getElementById('addPoint').addEventListener('click',function(){
+    var o=S.objs[S.sel]; if(!o||o.locked) return;
+    if(!o.points) o.points=[];
+    if(!o.waypointHome) o.waypointHome={x:o.x,y:o.y};
+    o.points.push({x:o.x,y:o.y});
+    o.x=o.waypointHome.x; o.y=o.waypointHome.y; // its rest position drives the pose math — keep it anchored at the start
+    renderList(); syncSel(); rebuildRuler();
+  });
+
+  document.getElementById('pointLoopSeg').addEventListener('click',function(e){
+    var b=e.target.closest('button'); if(!b) return;
+    var o=S.objs[S.sel]; if(!o||o.locked) return;
+    o.waypointLoop=(b.dataset.ploop==='1');
+    syncSel(); rebuildRuler();
+  });
+
+  document.getElementById('pathSpeed').addEventListener('input',function(){
+    var o=S.objs[S.sel]; if(!o||o.locked) return;
+    o.waypointSpeed=parseInt(this.value,10)||1;
+    document.getElementById('vPathSpeed').textContent=o.waypointSpeed+'×';
+    rebuildRuler();
+  });
+
   document.getElementById('splitShapeSeg').addEventListener('click',function(e){
     var b=e.target.closest('button'); if(!b) return;
     var o=S.objs[S.sel]; if(!o||o.locked||S.selSplit<0||!o.splits[S.selSplit]) return;
@@ -2360,7 +2518,10 @@
     } else {
       var list=targets();
       ensureCut(list);
-      list.forEach(function(o){ o.mode=mode; });
+      list.forEach(function(o){
+        o.mode=mode;
+        if(mode==='waypoints' && !o.waypointHome) o.waypointHome={x:o.x,y:o.y};
+      });
       if(usesAxis(mode) || mode==='bounce') unifyGroupDir(list);
       Array.prototype.forEach.call(this.children,function(c){ c.setAttribute('aria-pressed',String(c===b)); });
       renderList(); syncSel(); syncTravel(); rebuildRuler();
@@ -2602,12 +2763,32 @@
     spaceAcross(set);
   }
 
+  /* Spread items evenly across the canvas width, but never closer than their
+     own half-widths (+ gap) require, so large or numerous images don't overlap. */
   function spaceAcross(set){
     if(!set.length) return;
-    var n=set.length, margin=160, span=W-margin*2;
+    var n=set.length;
+    if(n===1){
+      set[0].x=W/2;
+      set[0].y=clampY(H*0.52);
+      motionCache.key=null;
+      return;
+    }
+    var margin=160, span=W-margin*2, gap=S.itemSpacing||0;
+    var sizes=set.map(function(o){ return dispW(o); });
+    var steps=[], i;
+    for(i=0;i<n-1;i++){
+      var evenStep=span/(n-1);
+      var minStep=sizes[i]/2+sizes[i+1]/2+gap;
+      steps.push(Math.max(evenStep,minStep));
+    }
+    var totalWidth=0;
+    for(i=0;i<steps.length;i++) totalWidth+=steps[i];
+    var x=W/2-totalWidth/2;
     set.forEach(function(o,i){
-      o.x = n===1 ? W/2 : clampX(margin + span*i/Math.max(1,n-1));
-      o.y = clampY(H*0.52);
+      o.x=clampX(x);
+      o.y=clampY(H*0.52);
+      if(i<steps.length) x+=steps[i];
     });
     motionCache.key=null;
   }
@@ -3456,7 +3637,7 @@
         S.objs.push({
           img:img, url:'', name:'P'+(i+1),
           scale:1, rot:0, mult:1, mode:'', sweepAxis:'', cut:true, win:0, pick:false, locked:false, hidden:false,
-          pv:{x:0,y:0}, splits:[],
+          pv:{x:0,y:0}, splits:[], points:[], waypointHome:null, waypointLoop:false, waypointSpeed:1,
           split:{on:false,shape:'circle',fx:0,fy:0,fs:0.40},
           x:200+i*160, y:900, alpha:{rNat:80,opaque:0.4}
         });
