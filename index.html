@@ -694,6 +694,21 @@
   function inkColor(){ return S.bg==='#12141c' ? '#f2f5ff' : '#10131f'; }
   function cutList(){ return S.objs.filter(function(o){ return o.cut && !o.hidden; }); }
   function pickList(){ return S.objs.filter(function(o){ return o.pick; }); }
+
+  /* explicit layer order — the first object added is 1, each new one is +1 on
+     top of the current highest, independent of S.objs' array position so
+     drawing/hit-testing stays stable even if the array is ever reshuffled */
+  function nextLayerOrder(){
+    var m=0;
+    S.objs.forEach(function(o){ if((o.order||0)>m) m=o.order||0; });
+    return m+1;
+  }
+  /* S.objs paired with their real array index, sorted back-to-front by layer order */
+  function orderedEntries(){
+    return S.objs.map(function(o,i){ return {o:o,i:i}; }).sort(function(a,b){
+      return (a.o.order||0)-(b.o.order||0);
+    });
+  }
   function isShown(o){ return o && !o.hidden; }
   function unlockedOf(list){ return (list||[]).filter(function(o){ return !o.locked; }); }
   function selFrozen(){ var o=S.objs[S.sel]; return !!(o&&o.locked); }
@@ -1395,7 +1410,9 @@
     }
 
     // everything that stays put: whole objects, plus the leftover body of split ones
-    S.objs.forEach(function(o){
+    var layers=orderedEntries();
+    layers.forEach(function(entry){
+      var o=entry.o;
       if(o.hidden) return;
       if(!o.cut) drawAt(o.img,1,o.x,o.y,o.rot,1,dispW(o),dispH(o));
       else if(isSplit(o) && !isPickMode(modeOf(o))) drawAt(remSrc(o),1,o.x,o.y,o.rot,1,dispW(o),dispH(o));
@@ -1404,7 +1421,8 @@
 
     if(S.slotA>0 && !isPickMode(S.mode)){
       var a=slotAlpha();
-      S.objs.forEach(function(o){
+      layers.forEach(function(entry){
+        var o=entry.o;
         if(o.hidden||!o.cut) return;
         var sps=activeSplits(o).filter(function(sp){ return sp.cut; });
         if(sps.length) sps.forEach(function(sp){ drawCutPiece(o,sp,a,null); });
@@ -1412,7 +1430,8 @@
       });
     }
 
-    S.objs.forEach(function(o){
+    layers.forEach(function(entry){
+      var o=entry.o;
       if(o.hidden||!o.cut) return;
       var sps=activeSplits(o).filter(function(sp){ return sp.cut; });
       if(sps.length){
@@ -1467,8 +1486,9 @@
     }
 
     if(!recording){
-      S.objs.forEach(function(o,i){
-        if(o.hidden||!o.pick||i===S.sel) return;
+      layers.forEach(function(entry){
+        var o=entry.o;
+        if(o.hidden||!o.pick||entry.i===S.sel) return;
         ctx.save();
         ctx.translate(o.x,o.y); ctx.rotate(o.rot);
         ctx.strokeStyle='#35e0d0'; ctx.lineWidth=3; ctx.setLineDash([12,9]);
@@ -2083,6 +2103,7 @@
           var o={
             img:im, url:e.target.result, name:f.name.replace(/\.[^.]+$/,'').slice(0,20),
             scale:340/Math.max(im.naturalWidth,im.naturalHeight),
+            order:nextLayerOrder(),
             rot:0, mult:1, mode:'', sweepAxis:'', cut:(n===0), win:0, pick:false, locked:false, hidden:false, pv:{x:0,y:0},
             points:[], waypointHome:null, waypointLoop:false, waypointSpeed:1,
             splits:[],
@@ -2160,9 +2181,11 @@
   var ptrs={}, ptrCount=0, dragInfo=null, pinch=null, pointDragIndex=-1;
 
   function hitAt(p){
-    for(var i=S.objs.length-1;i>=0;i--){
-      if(S.objs[i].hidden) continue;
-      if(hitTest(S.objs[i],p.x,p.y)) return i;
+    var layers=orderedEntries();
+    for(var k=layers.length-1;k>=0;k--){
+      var o=layers[k].o;
+      if(o.hidden) continue;
+      if(hitTest(o,p.x,p.y)) return layers[k].i;
     }
     return -1;
   }
@@ -3633,7 +3656,7 @@
       for(var i=0;i<n;i++){
         var img={naturalWidth:120, naturalHeight:220};
         S.objs.push({
-          img:img, url:'', name:'P'+(i+1),
+          img:img, url:'', name:'P'+(i+1), order:i+1,
           scale:1, rot:0, mult:1, mode:'', sweepAxis:'', cut:true, win:0, pick:false, locked:false, hidden:false,
           pv:{x:0,y:0}, splits:[], points:[], waypointHome:null, waypointLoop:false, waypointSpeed:1,
           split:{on:false,shape:'circle',fx:0,fy:0,fs:0.40},
