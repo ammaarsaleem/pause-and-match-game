@@ -1073,10 +1073,8 @@
       case 'teleport':
         cache=ensureMotionCache();
         p=PMMath.poseTeleport(t,idx,cache.rests,cache.teleport,S.teleportFlash); break;
-      case 'spotlight': {
-        var pcS=pieceCenter(o);
-        p=PMMath.poseSpotlight(t,k,idx,cutList().length,pcS.x,pcS.y,W/2,H*0.52); break;
-      }
+      case 'spotlight':
+        p=PMMath.poseSpotlight(t,k,idx,cutList().length); break;
       case 'centerRun': {
         var pcR=pieceCenter(o);
         p=PMMath.poseCenterRun(t,k,dir,idx,cutList().length,pcR.x,pcR.y,W,H,S.centerSpacing||420); break;

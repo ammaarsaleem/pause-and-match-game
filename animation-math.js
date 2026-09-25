@@ -244,16 +244,16 @@
   }
 
   /* Spotlight: the loop is split into `count` equal slots. Only `index` is
-     visible in its slot. Everyone is staged at (cx, cy) so the viewer sees
-     one object at a time from the list. */
+     visible in its slot, each at its own placed position — nobody moves,
+     they just take turns fading in so the viewer sees one at a time. */
   function spotlightSlot(t, k, count) {
     count = Math.max(1, count | 0);
     return Math.floor(wrap01(t * k) * count) % count;
   }
 
-  function poseSpotlight(t, k, index, count, restX, restY, cx, cy) {
+  function poseSpotlight(t, k, index, count) {
     var alpha = spotlightSlot(t, k, count) === index ? 1 : 0;
-    return poseOf(0, (cx || 0) - (restX || 0), (cy || 0) - (restY || 0), 1, undefined, alpha);
+    return poseOf(0, 0, 0, 1, undefined, alpha);
   }
 
   /* Center run: equally spaced on a belt. `gap` is centre-to-centre in pixels.

@@ -144,13 +144,15 @@
 
     var vis = 0, i;
     for (i = 0; i < 5; i++) {
-      var sp = M.poseSpotlight(0.12, 1, i, 5, 100, 200, 540, 960);
+      var sp = M.poseSpotlight(0.12, 1, i, 5);
       assertFinitePose(sp, 'spotlight ' + i);
+      assertNear(sp.dx, 0, 'spotlight never moves its piece (dx)');
+      assertNear(sp.dy, 0, 'spotlight never moves its piece (dy)');
       if (sp.alpha > 0.5) vis++;
     }
     ok(vis === 1, 'spotlight shows exactly one object');
-    ok(M.poseSpotlight(0, 1, 0, 5, 0, 0, 540, 960).alpha === 1, 'spotlight slot 0 at t=0');
-    ok(M.poseSpotlight(0, 1, 1, 5, 0, 0, 540, 960).alpha === 0, 'others hidden at t=0');
+    ok(M.poseSpotlight(0, 1, 0, 5).alpha === 1, 'spotlight slot 0 at t=0');
+    ok(M.poseSpotlight(0, 1, 1, 5).alpha === 0, 'others hidden at t=0');
     ok(M.spotlightSlot(0, 1, 5) === 0 && M.spotlightSlot(0.99, 1, 5) === 4, 'spotlight slots cover the list');
 
     var cr = M.poseCenterRun(0.3, 1, 1, 2, 5, 200, 900, 1080, 1920, 420);
